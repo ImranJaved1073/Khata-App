@@ -26,13 +26,17 @@ import { getSettings } from "../../repositories/settingsRepository";
 import type { EntryDirection } from "../../types/models";
 import { theme } from "../../theme/theme";
 import type { BillLineItemState } from "./BillLineItemCard";
-import { BillLineItemCard, buildInitialLineItem } from "./BillLineItemCard";
+import { BillLineItemCard, CollapsedLineRow, buildInitialLineItem } from "./BillLineItemCard";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryForm">;
 type Route = RouteProp<CustomersStackParamList, "EntryForm">;
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isLineFilled(item: BillLineItemState): boolean {
+  return item.itemName.trim().length > 0;
 }
 
 function regenerateIfUntouched(item: BillLineItemState): BillLineItemState {
@@ -48,6 +52,36 @@ function regenerateIfUntouched(item: BillLineItemState): BillLineItemState {
   };
 }
 
+/** Replaces the previously-appended auto block (if still present) with the new one, leaving any of the user's own text untouched. */
+function mergeNoteWithLineDescriptions(
+  currentNote: string,
+  previousAutoBlock: string,
+  nextAutoBlock: string,
+): string {
+  let base = currentNote;
+  if (previousAutoBlock && base.endsWith(previousAutoBlock)) {
+    base = base.slice(0, base.length - previousAutoBlock.length).replace(/\n+$/, "");
+  }
+  if (!nextAutoBlock) return base;
+  return base ? `${base}\n${nextAutoBlock}` : nextAutoBlock;
+}
+
+/** Commits the active line into the list — updating it in place if it already exists (by key), appending otherwise. No-op if the active line is blank. */
+function commitLine(
+  lineItems: BillLineItemState[],
+  activeLine: BillLineItemState,
+): BillLineItemState[] {
+  if (!isLineFilled(activeLine)) return lineItems;
+  const existingIndex = lineItems.findIndex((li) => li.key === activeLine.key);
+  const next = [...lineItems];
+  if (existingIndex !== -1) {
+    next[existingIndex] = activeLine;
+  } else {
+    next.push(activeLine);
+  }
+  return next;
+}
+
 export function EntryFormScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
@@ -59,9 +93,11 @@ export function EntryFormScreen() {
   const [entryDate, setEntryDate] = useState(todayDate());
   const [note, setNote] = useState("");
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
-  const [lineItems, setLineItems] = useState<BillLineItemState[]>([
+  const [lineItems, setLineItems] = useState<BillLineItemState[]>([]);
+  const [activeLine, setActiveLine] = useState<BillLineItemState>(() =>
     buildInitialLineItem(newId()),
-  ]);
+  );
+  const [lastAutoNoteBlock, setLastAutoNoteBlock] = useState("");
   const [saving, setSaving] = useState(false);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [billError, setBillError] = useState<string | null>(null);
@@ -71,21 +107,38 @@ export function EntryFormScreen() {
     getSettings(db).then((settings) => setCurrencySymbol(settings.currencySymbol));
   }, []);
 
-  function handleLineItemChange(index: number, next: BillLineItemState) {
-    setLineItems((prev) => {
-      const updated = [...prev];
-      updated[index] = regenerateIfUntouched(next);
-      return updated;
+  useEffect(() => {
+    navigation.setOptions({
+      title: mode === "bill" ? t("entry.newBillTitle") : t("khata.newEntry"),
     });
+  }, [navigation, mode, t]);
+
+  function applyLineCommit(next: BillLineItemState[]) {
+    setLineItems(next);
+    const nextAutoBlock = next.map((li) => li.description).filter(Boolean).join("\n");
+    setNote((prev) => mergeNoteWithLineDescriptions(prev, lastAutoNoteBlock, nextAutoBlock));
+    setLastAutoNoteBlock(nextAutoBlock);
+    return nextAutoBlock;
+  }
+
+  function handleLineItemChange(next: BillLineItemState) {
+    setActiveLine(regenerateIfUntouched(next));
     if (billError) setBillError(null);
   }
 
   function handleAddLine() {
-    setLineItems((prev) => [...prev, buildInitialLineItem(newId())]);
+    applyLineCommit(commitLine(lineItems, activeLine));
+    setActiveLine(buildInitialLineItem(newId()));
   }
 
-  function handleRemoveLine(index: number) {
-    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  function handleEditLine(item: BillLineItemState) {
+    applyLineCommit(commitLine(lineItems, activeLine));
+    setActiveLine(item);
+  }
+
+  function handleRemoveActiveLine() {
+    applyLineCommit(lineItems.filter((li) => li.key !== activeLine.key));
+    setActiveLine(buildInitialLineItem(newId()));
   }
 
   async function handlePickAttachment() {
@@ -125,13 +178,18 @@ export function EntryFormScreen() {
   }
 
   async function handleSaveBill() {
-    const validItems = lineItems.filter((item) => item.itemName.trim().length > 0);
+    const finalItems = commitLine(lineItems, activeLine);
+    const validItems = finalItems.filter((item) => item.itemName.trim().length > 0);
     const hasInvalidRate = validItems.some((item) => parseMoneyInput(item.rateInput) <= 0);
     if (validItems.length === 0 || hasInvalidRate) {
       setBillError(t("entry.billValidationError"));
       return;
     }
     setBillError(null);
+
+    const finalAutoBlock = finalItems.map((li) => li.description).filter(Boolean).join("\n");
+    const finalNote = mergeNoteWithLineDescriptions(note, lastAutoNoteBlock, finalAutoBlock);
+
     setSaving(true);
     try {
       await createEntry(db, {
@@ -139,7 +197,7 @@ export function EntryFormScreen() {
         customerId,
         direction: "cash_out",
         entryDate,
-        note: note.trim() || null,
+        note: finalNote.trim() || null,
         attachmentUri,
         lineItems: validItems.map((item) => ({
           itemName: item.itemName.trim(),
@@ -156,10 +214,18 @@ export function EntryFormScreen() {
     }
   }
 
-  const billTotal = lineItems.reduce(
-    (sum, item) => sum + item.quantity * parseMoneyInput(item.rateInput),
-    0,
-  );
+  const isEditingExisting = lineItems.some((li) => li.key === activeLine.key);
+  const activeLineNumber =
+    lineItems.findIndex((li) => li.key === activeLine.key) !== -1
+      ? lineItems.findIndex((li) => li.key === activeLine.key) + 1
+      : lineItems.length + 1;
+
+  const lineAmount = (item: BillLineItemState) => item.quantity * parseMoneyInput(item.rateInput);
+  const billTotal =
+    lineItems
+      .filter((li) => li.key !== activeLine.key)
+      .reduce((sum, item) => sum + lineAmount(item), 0) +
+    (isLineFilled(activeLine) ? lineAmount(activeLine) : 0);
 
   if (mode === "bill") {
     return (
@@ -168,17 +234,24 @@ export function EntryFormScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        {lineItems.map((item, index) => (
-          <BillLineItemCard
-            key={item.key}
-            item={item}
-            index={index}
-            currencySymbol={currencySymbol}
-            canRemove={lineItems.length > 1}
-            onChange={(next) => handleLineItemChange(index, next)}
-            onRemove={() => handleRemoveLine(index)}
-          />
-        ))}
+        {lineItems
+          .filter((item) => item.key !== activeLine.key)
+          .map((item) => (
+            <CollapsedLineRow
+              key={item.key}
+              item={item}
+              currencySymbol={currencySymbol}
+              onPress={() => handleEditLine(item)}
+            />
+          ))}
+
+        <BillLineItemCard
+          item={activeLine}
+          label={`${t("entry.lineItem")} ${activeLineNumber}`}
+          currencySymbol={currencySymbol}
+          onChange={handleLineItemChange}
+          onRemove={isEditingExisting ? handleRemoveActiveLine : undefined}
+        />
 
         <Pressable style={styles.addLineButton} onPress={handleAddLine}>
           <Text style={styles.addLineButtonText}>{t("entry.addLine")}</Text>
