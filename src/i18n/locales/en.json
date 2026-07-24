@@ -30,6 +30,8 @@
     "phone": "Phone",
     "address": "Address",
     "openingBalance": "Opening balance",
+    "photo": "Photo",
+    "nameRequired": "Name is required",
     "save": "Save",
     "cancel": "Cancel"
   },
