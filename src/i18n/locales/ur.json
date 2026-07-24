@@ -74,7 +74,10 @@
     "itemsCount_one": "{{count}} آئٹم",
     "itemsCount_other": "{{count}} آئٹمز",
     "detailTitle": "انٹری",
-    "newBillTitle": "نیا بل"
+    "newBillTitle": "نیا بل",
+    "editEntryTitle": "انٹری میں ترمیم کریں",
+    "editBillTitle": "بل میں ترمیم کریں",
+    "edit": "ترمیم کریں"
   },
   "reports": {
     "title": "رپورٹس",

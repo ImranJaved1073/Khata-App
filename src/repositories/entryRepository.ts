@@ -8,7 +8,7 @@ import type {
   LineItem,
   Paisa,
 } from "../types/models";
-import { logAudit } from "./auditRepository";
+import { buildDiff, logAudit } from "./auditRepository";
 import { generateLineItemDescription } from "./description";
 import { newId, nowIso } from "./ids";
 
@@ -48,7 +48,7 @@ export interface EntryWithLineItems extends Entry {
   lineItems: LineItem[];
 }
 
-function buildLineItemRow(entryId: string, input: LineItemInput) {
+function buildLineItemRow(entryId: string, input: LineItemInput, existingId?: string) {
   const quantity = input.quantity ?? 1;
   const amount = quantity * input.rate;
   const descriptionTouched = Boolean(input.description);
@@ -62,7 +62,7 @@ function buildLineItemRow(entryId: string, input: LineItemInput) {
     });
 
   return {
-    id: newId(),
+    id: existingId ?? newId(),
     entryId,
     itemName: input.itemName,
     size: input.size ?? null,
@@ -143,6 +143,116 @@ export async function getEntry(
       : [];
 
   return { ...entry, lineItems: items };
+}
+
+export interface UpdateSimpleEntryInput {
+  type: "simple";
+  direction: EntryDirection;
+  amount: Paisa;
+  entryDate: string;
+  note?: string | null;
+  attachmentUri?: string | null;
+}
+
+export interface UpdateBillEntryInput {
+  type: "bill";
+  entryDate: string;
+  note?: string | null;
+  attachmentUri?: string | null;
+  /** Line items keyed by `id`: an id matching an existing row edits it, a missing id inserts a new row, and any existing row whose id is absent here is removed. */
+  lineItems: (LineItemInput & { id?: string })[];
+}
+
+export type UpdateEntryInput = UpdateSimpleEntryInput | UpdateBillEntryInput;
+
+export async function updateEntry(
+  db: Database,
+  entryId: string,
+  input: UpdateEntryInput,
+): Promise<EntryWithLineItems> {
+  const before = await getEntry(db, entryId);
+  if (!before) {
+    throw new Error(`Entry not found: ${entryId}`);
+  }
+
+  const updatedAt = nowIso();
+
+  if (input.type === "simple") {
+    const patch = {
+      direction: input.direction,
+      amount: input.amount,
+      entryDate: input.entryDate,
+      note: input.note ?? null,
+      attachmentUri: input.attachmentUri ?? null,
+    };
+
+    await db.update(entries).set({ ...patch, updatedAt }).where(eq(entries.id, entryId));
+
+    const diff = buildDiff(before, patch);
+    if (Object.keys(diff).length > 0) {
+      await logAudit(db, { entity: "entry", entityId: entryId, action: "edit", diff });
+    }
+
+    return { ...before, ...patch, updatedAt };
+  }
+
+  const nextLineItemRows = input.lineItems.map((li) => buildLineItemRow(entryId, li, li.id));
+  const amount = nextLineItemRows.reduce((sum, li) => sum + li.amount, 0);
+  const patch = {
+    entryDate: input.entryDate,
+    amount,
+    note: input.note ?? null,
+    attachmentUri: input.attachmentUri ?? null,
+  };
+
+  const beforeIds = new Set(before.lineItems.map((li) => li.id));
+  const nextIds = new Set(nextLineItemRows.map((li) => li.id));
+  const removedRows = before.lineItems.filter((li) => !nextIds.has(li.id));
+
+  await db.transaction(async (tx) => {
+    await tx.update(entries).set({ ...patch, updatedAt }).where(eq(entries.id, entryId));
+
+    for (const row of removedRows) {
+      await tx.delete(lineItems).where(eq(lineItems.id, row.id));
+    }
+    for (const row of nextLineItemRows) {
+      if (beforeIds.has(row.id)) {
+        await tx.update(lineItems).set(row).where(eq(lineItems.id, row.id));
+      } else {
+        await tx.insert(lineItems).values(row);
+      }
+    }
+  });
+
+  const entryDiff = buildDiff(
+    {
+      entryDate: before.entryDate,
+      amount: before.amount,
+      note: before.note,
+      attachmentUri: before.attachmentUri,
+    },
+    patch,
+  );
+  if (Object.keys(entryDiff).length > 0) {
+    await logAudit(db, { entity: "entry", entityId: entryId, action: "edit", diff: entryDiff });
+  }
+
+  for (const row of removedRows) {
+    await logAudit(db, { entity: "line_item", entityId: row.id, action: "delete" });
+  }
+  for (const row of nextLineItemRows) {
+    const existing = before.lineItems.find((li) => li.id === row.id);
+    if (!existing) {
+      await logAudit(db, { entity: "line_item", entityId: row.id, action: "create" });
+    } else {
+      const lineDiff = buildDiff(existing, row);
+      if (Object.keys(lineDiff).length > 0) {
+        await logAudit(db, { entity: "line_item", entityId: row.id, action: "edit", diff: lineDiff });
+      }
+    }
+  }
+
+  return { ...before, ...patch, updatedAt, lineItems: nextLineItemRows };
 }
 
 export async function listEntriesForCustomer(

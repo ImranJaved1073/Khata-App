@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
-import { useFocusEffect, useRoute } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
 import { db } from "../../db/client";
@@ -15,10 +17,12 @@ import { GARMENT_COLORS, type GarmentColorLabel } from "../../theme/colors";
 import { theme } from "../../theme/theme";
 import type { Customer, LineItem } from "../../types/models";
 
+type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryDetail">;
 type Route = RouteProp<CustomersStackParamList, "EntryDetail">;
 
 export function EntryDetailScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
   const { entryId } = route.params;
 
@@ -59,6 +63,22 @@ export function EntryDetailScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {customer ? <Text style={styles.customerName}>{customer.name}</Text> : null}
       <Text style={styles.date}>{entry.entryDate}</Text>
+
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={styles.actionButton}
+          onPress={() =>
+            navigation.navigate("EntryForm", {
+              customerId: entry.customerId,
+              mode: entry.type,
+              entryId: entry.id,
+            })
+          }
+        >
+          <Ionicons name="pencil-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.actionButtonText}>{t("entry.edit")}</Text>
+        </Pressable>
+      </View>
 
       {entry.type === "bill" ? (
         <>
@@ -141,7 +161,28 @@ const styles = StyleSheet.create({
   date: {
     ...theme.typography.caption,
     color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
     marginBottom: theme.spacing.md,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  actionButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.primary,
+    fontWeight: "600",
   },
   lineRow: {
     flexDirection: "row",

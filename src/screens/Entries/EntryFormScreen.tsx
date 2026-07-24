@@ -20,13 +20,18 @@ import { db } from "../../db/client";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { generateLineItemDescription } from "../../repositories/description";
-import { createEntry } from "../../repositories/entryRepository";
+import { createEntry, getEntry, updateEntry } from "../../repositories/entryRepository";
 import { newId } from "../../repositories/ids";
 import { getSettings } from "../../repositories/settingsRepository";
-import type { EntryDirection } from "../../types/models";
+import type { EntryDirection, LineItem } from "../../types/models";
 import { theme } from "../../theme/theme";
 import type { BillLineItemState } from "./BillLineItemCard";
-import { BillLineItemCard, CollapsedLineRow, buildInitialLineItem } from "./BillLineItemCard";
+import {
+  BillLineItemCard,
+  CollapsedLineRow,
+  GARMENT_SIZES,
+  buildInitialLineItem,
+} from "./BillLineItemCard";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryForm">;
 type Route = RouteProp<CustomersStackParamList, "EntryForm">;
@@ -82,12 +87,30 @@ function commitLine(
   return next;
 }
 
+/** A saved line item's `id` doubles as its client-side `key`, so edits map back to the same row. */
+function lineItemStateFromModel(li: LineItem): BillLineItemState {
+  const isPresetSize = li.size ? (GARMENT_SIZES as readonly string[]).includes(li.size) : false;
+  return {
+    key: li.id,
+    itemName: li.itemName,
+    size: li.size,
+    isCustomSize: Boolean(li.size) && !isPresetSize,
+    color: li.color,
+    quantity: li.quantity,
+    rateInput: formatMoneyInput(li.rate),
+    description: li.description,
+    descriptionTouched: li.descriptionTouched,
+  };
+}
+
 export function EntryFormScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
-  const { customerId, mode } = route.params;
+  const { customerId, mode, entryId } = route.params;
+  const isEditMode = Boolean(entryId);
 
+  const [loading, setLoading] = useState(isEditMode);
   const [direction, setDirection] = useState<EntryDirection>("cash_out");
   const [amountInput, setAmountInput] = useState(formatMoneyInput(0));
   const [entryDate, setEntryDate] = useState(todayDate());
@@ -108,10 +131,35 @@ export function EntryFormScreen() {
   }, []);
 
   useEffect(() => {
-    navigation.setOptions({
-      title: mode === "bill" ? t("entry.newBillTitle") : t("khata.newEntry"),
+    if (!entryId) return;
+    getEntry(db, entryId).then((entry) => {
+      if (!entry) {
+        setLoading(false);
+        return;
+      }
+      setEntryDate(entry.entryDate);
+      setNote(entry.note ?? "");
+      setAttachmentUri(entry.attachmentUri);
+      if (entry.type === "simple") {
+        setDirection(entry.direction);
+        setAmountInput(formatMoneyInput(entry.amount));
+      } else {
+        const items = entry.lineItems.map(lineItemStateFromModel);
+        setLineItems(items);
+        setLastAutoNoteBlock(items.map((li) => li.description).filter(Boolean).join("\n"));
+      }
+      setLoading(false);
     });
-  }, [navigation, mode, t]);
+  }, [entryId]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      title:
+        mode === "bill"
+          ? t(isEditMode ? "entry.editBillTitle" : "entry.newBillTitle")
+          : t(isEditMode ? "entry.editEntryTitle" : "khata.newEntry"),
+    });
+  }, [navigation, mode, isEditMode, t]);
 
   function applyLineCommit(next: BillLineItemState[]) {
     setLineItems(next);
@@ -163,14 +211,24 @@ export function EntryFormScreen() {
     setAmountError(null);
     setSaving(true);
     try {
-      await createEntry(db, {
-        type: "simple",
-        customerId,
-        direction,
-        amount,
-        entryDate,
-        note: note.trim() || null,
-      });
+      if (isEditMode && entryId) {
+        await updateEntry(db, entryId, {
+          type: "simple",
+          direction,
+          amount,
+          entryDate,
+          note: note.trim() || null,
+        });
+      } else {
+        await createEntry(db, {
+          type: "simple",
+          customerId,
+          direction,
+          amount,
+          entryDate,
+          note: note.trim() || null,
+        });
+      }
       navigation.goBack();
     } finally {
       setSaving(false);
@@ -190,31 +248,44 @@ export function EntryFormScreen() {
     const finalAutoBlock = finalItems.map((li) => li.description).filter(Boolean).join("\n");
     const finalNote = mergeNoteWithLineDescriptions(note, lastAutoNoteBlock, finalAutoBlock);
 
+    const mappedLineItems = validItems.map((item) => ({
+      id: isEditMode ? item.key : undefined,
+      itemName: item.itemName.trim(),
+      size: item.isCustomSize ? item.size?.trim() || null : item.size,
+      color: item.color,
+      quantity: item.quantity,
+      rate: parseMoneyInput(item.rateInput),
+      description: item.descriptionTouched ? item.description : undefined,
+    }));
+
     setSaving(true);
     try {
-      await createEntry(db, {
-        type: "bill",
-        customerId,
-        direction: "cash_out",
-        entryDate,
-        note: finalNote.trim() || null,
-        attachmentUri,
-        lineItems: validItems.map((item) => ({
-          itemName: item.itemName.trim(),
-          size: item.isCustomSize ? item.size?.trim() || null : item.size,
-          color: item.color,
-          quantity: item.quantity,
-          rate: parseMoneyInput(item.rateInput),
-          description: item.descriptionTouched ? item.description : undefined,
-        })),
-      });
+      if (isEditMode && entryId) {
+        await updateEntry(db, entryId, {
+          type: "bill",
+          entryDate,
+          note: finalNote.trim() || null,
+          attachmentUri,
+          lineItems: mappedLineItems,
+        });
+      } else {
+        await createEntry(db, {
+          type: "bill",
+          customerId,
+          direction: "cash_out",
+          entryDate,
+          note: finalNote.trim() || null,
+          attachmentUri,
+          lineItems: mappedLineItems,
+        });
+      }
       navigation.goBack();
     } finally {
       setSaving(false);
     }
   }
 
-  const isEditingExisting = lineItems.some((li) => li.key === activeLine.key);
+  const isEditingExistingLine = lineItems.some((li) => li.key === activeLine.key);
   const activeLineNumber =
     lineItems.findIndex((li) => li.key === activeLine.key) !== -1
       ? lineItems.findIndex((li) => li.key === activeLine.key) + 1
@@ -226,6 +297,14 @@ export function EntryFormScreen() {
       .filter((li) => li.key !== activeLine.key)
       .reduce((sum, item) => sum + lineAmount(item), 0) +
     (isLineFilled(activeLine) ? lineAmount(activeLine) : 0);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   if (mode === "bill") {
     return (
@@ -250,7 +329,7 @@ export function EntryFormScreen() {
           label={`${t("entry.lineItem")} ${activeLineNumber}`}
           currencySymbol={currencySymbol}
           onChange={handleLineItemChange}
-          onRemove={isEditingExisting ? handleRemoveActiveLine : undefined}
+          onRemove={isEditingExistingLine ? handleRemoveActiveLine : undefined}
         />
 
         <Pressable style={styles.addLineButton} onPress={handleAddLine}>
@@ -432,6 +511,12 @@ function Field({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: theme.colors.background,
   },
   content: {
