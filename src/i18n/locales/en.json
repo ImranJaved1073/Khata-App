@@ -85,7 +85,16 @@
     "historyEmpty": "No history yet.",
     "historyCreated": "Created",
     "historyEdited": "Edited",
-    "historyDeleted": "Deleted"
+    "historyDeleted": "Deleted",
+    "share": "Share"
+  },
+  "share": {
+    "whatsapp": "WhatsApp",
+    "sms": "SMS",
+    "pdf": "PDF",
+    "billTitle": "Share bill",
+    "statementTitle": "Share statement",
+    "unavailable": "Sharing isn't available on this device."
   },
   "reports": {
     "title": "Reports",
