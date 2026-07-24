@@ -35,7 +35,11 @@ export function CustomersStack() {
         component={EntryFormScreen}
         options={{ title: t("khata.newEntry") }}
       />
-      <Stack.Screen name="EntryDetail" component={EntryDetailScreen} />
+      <Stack.Screen
+        name="EntryDetail"
+        component={EntryDetailScreen}
+        options={{ title: t("entry.detailTitle") }}
+      />
       <Stack.Screen name="EntryHistory" component={EntryHistoryScreen} />
     </Stack.Navigator>
   );

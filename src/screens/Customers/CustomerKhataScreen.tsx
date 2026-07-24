@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
@@ -54,6 +54,20 @@ export function CustomerKhataScreen() {
     navigation.setOptions({ title: customer?.name ?? t("app.name") });
   }, [navigation, customer, t]);
 
+  function handleNewEntry() {
+    Alert.alert(t("khata.newEntry"), undefined, [
+      { text: t("customerForm.cancel"), style: "cancel" },
+      {
+        text: t("entry.itemizedBill"),
+        onPress: () => navigation.navigate("EntryForm", { customerId, mode: "bill" }),
+      },
+      {
+        text: t("khata.simpleEntry"),
+        onPress: () => navigation.navigate("EntryForm", { customerId, mode: "simple" }),
+      },
+    ]);
+  }
+
   if (loading || !customer) {
     return (
       <View style={styles.center}>
@@ -101,11 +115,7 @@ export function CustomerKhataScreen() {
         />
       )}
 
-      <Pressable
-        style={styles.fab}
-        accessibilityLabel={t("khata.newEntry")}
-        onPress={() => navigation.navigate("EntryForm", { customerId, mode: "simple" })}
-      >
+      <Pressable style={styles.fab} accessibilityLabel={t("khata.newEntry")} onPress={handleNewEntry}>
         <Ionicons name="add" size={28} color={theme.colors.background} />
       </Pressable>
     </View>
@@ -125,18 +135,23 @@ function EntryRow({
   const isCashOut = entry.direction === "cash_out";
   const color = isCashOut ? theme.colors.owesMe : theme.colors.iOwe;
   const sign = isCashOut ? "+" : "-";
+  const isBill = entry.type === "bill";
 
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <Ionicons
-        name={isCashOut ? "arrow-up-circle" : "arrow-down-circle"}
+        name={isBill ? "receipt-outline" : isCashOut ? "arrow-up-circle" : "arrow-down-circle"}
         size={28}
         color={color}
         style={styles.rowIcon}
       />
       <View style={styles.rowInfo}>
         <Text style={styles.rowLabel}>
-          {isCashOut ? t("entry.gaveOnCredit") : t("entry.receivedPayment")}
+          {isBill
+            ? t("entry.itemsCount", { count: entry.lineItems.length })
+            : isCashOut
+              ? t("entry.gaveOnCredit")
+              : t("entry.receivedPayment")}
         </Text>
         <Text style={styles.rowSubtext}>{entry.entryDate}</Text>
         {entry.note ? (

@@ -129,6 +129,22 @@ export async function createEntry(
   return { ...entryRow, lineItems: boundLineItems };
 }
 
+export async function getEntry(
+  db: Database,
+  entryId: string,
+): Promise<EntryWithLineItems | null> {
+  const rows = await db.select().from(entries).where(eq(entries.id, entryId)).limit(1);
+  const entry = rows[0];
+  if (!entry) return null;
+
+  const items =
+    entry.type === "bill"
+      ? await db.select().from(lineItems).where(eq(lineItems.entryId, entry.id))
+      : [];
+
+  return { ...entry, lineItems: items };
+}
+
 export async function listEntriesForCustomer(
   db: Database,
   customerId: string,
