@@ -255,6 +255,20 @@ export async function updateEntry(
   return { ...before, ...patch, updatedAt, lineItems: nextLineItemRows };
 }
 
+export async function deleteEntry(db: Database, entryId: string): Promise<void> {
+  const before = await getEntry(db, entryId);
+  if (!before) {
+    throw new Error(`Entry not found: ${entryId}`);
+  }
+
+  await db
+    .update(entries)
+    .set({ isDeleted: true, updatedAt: nowIso() })
+    .where(eq(entries.id, entryId));
+
+  await logAudit(db, { entity: "entry", entityId: entryId, action: "delete" });
+}
+
 export async function listEntriesForCustomer(
   db: Database,
   customerId: string,

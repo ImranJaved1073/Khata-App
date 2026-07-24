@@ -77,7 +77,15 @@
     "newBillTitle": "New Bill",
     "editEntryTitle": "Edit Entry",
     "editBillTitle": "Edit Bill",
-    "edit": "Edit"
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete this entry?",
+    "deleteConfirmMessage": "It will be removed from the customer's balance, but kept in history.",
+    "history": "History",
+    "historyEmpty": "No history yet.",
+    "historyCreated": "Created",
+    "historyEdited": "Edited",
+    "historyDeleted": "Deleted"
   },
   "reports": {
     "title": "Reports",
