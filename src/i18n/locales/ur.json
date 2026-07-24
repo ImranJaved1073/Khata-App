@@ -73,7 +73,8 @@
     "billValidationError": "کم از کم ایک آئٹم کا نام اور 0 سے زیادہ ریٹ درج کریں",
     "itemsCount_one": "{{count}} آئٹم",
     "itemsCount_other": "{{count}} آئٹمز",
-    "detailTitle": "انٹری"
+    "detailTitle": "انٹری",
+    "newBillTitle": "نیا بل"
   },
   "reports": {
     "title": "رپورٹس",

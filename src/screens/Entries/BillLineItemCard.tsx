@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
+import type { GarmentColorLabel } from "../../theme/colors";
 import { GARMENT_COLOR_LABELS, GARMENT_COLORS } from "../../theme/colors";
 import { theme } from "../../theme/theme";
 
@@ -20,20 +21,33 @@ export interface BillLineItemState {
   descriptionTouched: boolean;
 }
 
+export function buildInitialLineItem(key: string): BillLineItemState {
+  return {
+    key,
+    itemName: "",
+    size: null,
+    isCustomSize: false,
+    color: null,
+    quantity: 1,
+    rateInput: formatMoneyInput(0),
+    description: "",
+    descriptionTouched: false,
+  };
+}
+
+/** The single open line-item form. Only one of these is ever on screen at a time. */
 export function BillLineItemCard({
   item,
-  index,
+  label,
   currencySymbol,
-  canRemove,
   onChange,
   onRemove,
 }: {
   item: BillLineItemState;
-  index: number;
+  label: string;
   currencySymbol: string;
-  canRemove: boolean;
   onChange: (next: BillLineItemState) => void;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   const { t } = useTranslation();
   const rate = parseMoneyInput(item.rateInput);
@@ -46,10 +60,8 @@ export function BillLineItemCard({
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>
-          {t("entry.lineItem")} {index + 1}
-        </Text>
-        {canRemove ? (
+        <Text style={styles.cardTitle}>{label}</Text>
+        {onRemove ? (
           <Pressable onPress={onRemove} accessibilityLabel={t("entry.removeLine")}>
             <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
           </Pressable>
@@ -106,18 +118,18 @@ export function BillLineItemCard({
 
       <Text style={styles.fieldLabel}>{t("entry.color")}</Text>
       <View style={styles.swatchRow}>
-        {GARMENT_COLOR_LABELS.map((label) => (
+        {GARMENT_COLOR_LABELS.map((swatchLabel) => (
           <Pressable
-            key={label}
-            accessibilityLabel={label}
+            key={swatchLabel}
+            accessibilityLabel={swatchLabel}
             style={[
               styles.swatch,
-              { backgroundColor: GARMENT_COLORS[label] },
-              item.color === label && styles.swatchActive,
+              { backgroundColor: GARMENT_COLORS[swatchLabel] },
+              item.color === swatchLabel && styles.swatchActive,
             ]}
-            onPress={() => update({ color: label })}
+            onPress={() => update({ color: swatchLabel })}
           >
-            {item.color === label ? (
+            {item.color === swatchLabel ? (
               <Ionicons name="checkmark" size={16} color={theme.colors.background} />
             ) : null}
           </Pressable>
@@ -170,18 +182,38 @@ export function BillLineItemCard({
   );
 }
 
-export function buildInitialLineItem(key: string): BillLineItemState {
-  return {
-    key,
-    itemName: "",
-    size: null,
-    isCustomSize: false,
-    color: null,
-    quantity: 1,
-    rateInput: formatMoneyInput(0),
-    description: "",
-    descriptionTouched: false,
-  };
+/** A completed line, collapsed to a single tappable summary row. Tapping reopens it in the form above. */
+export function CollapsedLineRow({
+  item,
+  currencySymbol,
+  onPress,
+}: {
+  item: BillLineItemState;
+  currencySymbol: string;
+  onPress: () => void;
+}) {
+  const rate = parseMoneyInput(item.rateInput);
+  const amount = item.quantity * rate;
+  const swatchColor = item.color
+    ? GARMENT_COLORS[item.color as GarmentColorLabel]
+    : undefined;
+
+  return (
+    <Pressable style={styles.collapsedRow} onPress={onPress}>
+      {swatchColor ? (
+        <View style={[styles.collapsedSwatch, { backgroundColor: swatchColor }]} />
+      ) : null}
+      <View style={styles.collapsedInfo}>
+        <Text style={styles.collapsedDescription} numberOfLines={1}>
+          {item.description || item.itemName}
+        </Text>
+        <Text style={styles.collapsedSubtext}>
+          {item.quantity} × {formatMoney(rate, currencySymbol)}
+        </Text>
+      </View>
+      <Text style={styles.collapsedAmount}>{formatMoney(amount, currencySymbol)}</Text>
+    </Pressable>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -300,5 +332,42 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     textAlign: "right",
     marginTop: theme.spacing.xs,
+  },
+  collapsedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  collapsedSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginEnd: theme.spacing.sm,
+  },
+  collapsedInfo: {
+    flex: 1,
+    marginEnd: theme.spacing.sm,
+  },
+  collapsedDescription: {
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
+  },
+  collapsedSubtext: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  collapsedAmount: {
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
+    fontWeight: "600",
   },
 });

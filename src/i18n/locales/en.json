@@ -73,7 +73,8 @@
     "billValidationError": "Add at least one item with a name and a rate greater than 0",
     "itemsCount_one": "{{count}} item",
     "itemsCount_other": "{{count}} items",
-    "detailTitle": "Entry"
+    "detailTitle": "Entry",
+    "newBillTitle": "New Bill"
   },
   "reports": {
     "title": "Reports",
