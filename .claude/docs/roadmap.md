@@ -13,7 +13,7 @@ Each story below should note its branch name once created, e.g.:
 |---|---|---|---|
 | 0 — Foundation | Expo+TS init, nav shell (tabs+stacks), theme tokens, i18next EN/UR + RTL flip, SQLite/Drizzle schema (5 tables), typed repository layer, seed data (3 demo customers) | none (skeleton) | ✅ Done |
 | 1 — Customers | Searchable customer list (name/phone, live search, sort by balance/recency), add/edit customer form, archive with audit log | B1, B2, B3 | ✅ Done |
-| 2 — Entries & running balance | Customer khata screen (color-coded balance header, newest-first entry list), simple cash-in/cash-out entry, home dashboard totals | C1, C2, D2 | ⬜ Not started |
+| 2 — Entries & running balance | Customer khata screen (color-coded balance header, newest-first entry list), simple cash-in/cash-out entry, home dashboard totals | C1, C2, D2 | ✅ Done |
 | 3 — Itemized bills | Bill form (line items, size/color pickers, garment palette, quantity/rate/amount), auto-description engine, live bill total. **The centerpiece — budget the most time here.** | C3 | ⬜ Not started |
 | 4 — Edit, delete & history | Edit/soft-delete any entry with audit_log diff, entry history timeline | C4, C5 | ⬜ Not started |
 | 5 — Sharing & export | WhatsApp/SMS share (bill/statement text + deep link), PDF export (`expo-print`), Excel/CSV export (`xlsx` + `expo-file-system`) | D1, D3 | ⬜ Not started |
@@ -38,10 +38,10 @@ Each story below should note its branch name once created, e.g.:
 - [x] Balance computed from entries (listCustomersWithBalance, feature/1-b1-customer-list, 2026-07-24)
 
 ## Phase 2 — Simple entries & running balance (Stories C1, C2, D2)
-- [ ] Customer khata screen
-- [ ] Simple cash-in / cash-out entry form
-- [ ] Running balance math
-- [ ] Home dashboard totals
+- [x] Customer khata screen (feature/2-c1-c2-d2-khata-entries, 2026-07-24)
+- [x] Simple cash-in / cash-out entry form (feature/2-c1-c2-d2-khata-entries, 2026-07-24)
+- [x] Running balance math (computeBalanceFromEntries, reused from Phase 0/1, feature/2-c1-c2-d2-khata-entries, 2026-07-24)
+- [x] Home dashboard totals (feature/2-c1-c2-d2-khata-entries, 2026-07-24)
 
 ## Phase 3 — Itemized bills (Story C3)
 - [ ] Bill form / line-item editor
