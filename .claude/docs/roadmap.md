@@ -22,6 +22,48 @@ Tracks progress against `docs/Khata_app-Guide.pdf` sections 8 (user stories) and
 - [ ] Money never shows floating-point rounding errors.
 - [ ] Nothing is reachable without passing the PIN/biometric lock.
 
+## Phase 1 — Customers (Stories B1–B3)
+- [ ] Customer list — search, sort, balance display
+- [ ] Add/edit customer form
+- [ ] Archive (soft-hide)
+- [ ] Balance computed from (still empty) entries
+
+## Phase 2 — Simple entries & running balance (Stories C1, C2, D2)
+- [ ] Customer khata screen
+- [ ] Simple cash-in / cash-out entry form
+- [ ] Running balance math
+- [ ] Home dashboard totals
+
+## Phase 3 — Itemized bills (Story C3)
+- [ ] Bill form / line-item editor
+- [ ] Size & color pickers (garment palette)
+- [ ] Auto-description engine (+ description_touched override)
+- [ ] Live bill total, multi-line support
+
+## Phase 4 — Edit, delete & history (Stories C4, C5)
+- [ ] Edit entry (reopens correct form type)
+- [ ] Soft delete
+- [ ] Audit log wired into every mutation
+- [ ] Entry history / audit timeline screen
+
+## Phase 5 — Sharing & export (Stories D1, D3)
+- [ ] WhatsApp/SMS share (bill & statement text)
+- [ ] PDF export (single bill + full statement)
+- [ ] CSV / Excel export
+
+## Phase 6 — Security & onboarding (Stories A1, A2)
+- [ ] PIN + biometric lock, lockout after failed attempts
+- [ ] First-run setup wizard
+- [ ] Settings screen (profile, language, currency, PIN, backup/restore)
+
+## Phase 7 — Polish & release
+- [ ] Empty states, error handling
+- [ ] Large-number formatting
+- [ ] Accessibility pass
+- [ ] App icons/splash, EAS store builds
+- [ ] Full QA against every AC in spec Section 8
+
+
 ## Notes for whoever picks up the next phase
 - Read `.claude/docs/architecture.md`, `data-model.md`, and `ui.md` first — they cover the non-negotiable rules (integer paisa, recomputed balance, audit log on every mutation, garment color palette) that every phase depends on.
 - Phase 3 (itemized bills) is explicitly called out in the spec as the feature the whole app is built around — don't under-scope it relative to the other phases.
