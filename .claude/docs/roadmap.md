@@ -50,6 +50,7 @@ Each story below should note its branch name once created, e.g.:
 - [x] Live bill total, multi-line support (feature/3-c3-itemized-bill-form, 2026-07-25)
 - [x] Bill created from a customer's khata (entries list) screen — "+ New Entry" now offers Simple entry vs Itemized bill, and the created entry lands in that customer's entry list (feature/3-c3-itemized-bill-form, 2026-07-25)
 - [x] Read-only bill/entry detail view (line items, total, note, attachment) — Edit/Delete/Share/History actions still land in Phases 4–5 (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Bill form UX refinement — screen retitled "New Bill"; only one line-item form is open at a time, completed lines collapse to a compact tappable summary row (tap to reopen), and each line's description is folded into the bill note (newline-separated, appended after any text the user already typed) (feature/3-c3-bill-ui-improvements, 2026-07-25)
 
 ## Phase 4 — Edit, delete & history (Stories C4, C5)
 - [ ] Edit entry (reopens correct form type)

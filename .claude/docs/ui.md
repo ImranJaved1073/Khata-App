@@ -25,7 +25,7 @@ Defined in [`src/theme/`](../../src/theme/) — always import from there, never 
 | Add/edit customer | Name, phone, photo, address, opening balance. |
 | Customer khata (detail) | Big color-coded balance header, entry list newest-first, "+ New Entry", "Share statement". |
 | New/edit entry — simple | Direction toggle, amount pad, date, note. |
-| New/edit entry — bill | Line-item editor (7.2), live total, note, attachment, auto descriptions. |
+| New/edit entry — bill ("New Bill") | Line-item editor (7.2): one line open for editing at a time; completed lines collapse to a compact tappable summary row (tap to reopen), live total across collapsed + active lines, note (auto-populated with each line's description, user's own text preserved), attachment, auto descriptions. |
 | Entry detail | Full bill view: Share / Edit / Delete / History. |
 | Entry history | Audit timeline for that entry. |
 | Reports | Totals, date-range filter, export to PDF / Excel / CSV. |
