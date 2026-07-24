@@ -41,6 +41,7 @@
   },
   "khata": {
     "newEntry": "نئی انٹری",
+    "simpleEntry": "سادہ انٹری",
     "shareStatement": "اسٹیٹمنٹ شیئر کریں",
     "empty": "ابھی تک کوئی انٹری نہیں۔",
     "theyOweYou": "ان کے ذمے آپ کی رقم ہے",
@@ -58,7 +59,21 @@
     "note": "نوٹ",
     "addLine": "+ لائن شامل کریں",
     "total": "کل رقم",
-    "save": "محفوظ کریں"
+    "save": "محفوظ کریں",
+    "lineItem": "آئٹم",
+    "removeLine": "آئٹم ہٹائیں",
+    "itemName": "آئٹم کا نام",
+    "size": "سائز",
+    "customSize": "اپنی مرضی کا",
+    "color": "رنگ",
+    "quantity": "تعداد",
+    "rate": "ریٹ",
+    "description": "تفصیل",
+    "attachment": "رسید کی تصویر لگائیں",
+    "billValidationError": "کم از کم ایک آئٹم کا نام اور 0 سے زیادہ ریٹ درج کریں",
+    "itemsCount_one": "{{count}} آئٹم",
+    "itemsCount_other": "{{count}} آئٹمز",
+    "detailTitle": "انٹری"
   },
   "reports": {
     "title": "رپورٹس",

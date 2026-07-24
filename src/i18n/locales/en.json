@@ -41,6 +41,7 @@
   },
   "khata": {
     "newEntry": "New Entry",
+    "simpleEntry": "Simple entry",
     "shareStatement": "Share statement",
     "empty": "No entries yet.",
     "theyOweYou": "They owe you",
@@ -58,7 +59,21 @@
     "note": "Note",
     "addLine": "+ Add line",
     "total": "Total",
-    "save": "Save"
+    "save": "Save",
+    "lineItem": "Item",
+    "removeLine": "Remove item",
+    "itemName": "Item name",
+    "size": "Size",
+    "customSize": "Custom",
+    "color": "Color",
+    "quantity": "Quantity",
+    "rate": "Rate",
+    "description": "Description",
+    "attachment": "Attach receipt photo",
+    "billValidationError": "Add at least one item with a name and a rate greater than 0",
+    "itemsCount_one": "{{count}} item",
+    "itemsCount_other": "{{count}} items",
+    "detailTitle": "Entry"
   },
   "reports": {
     "title": "Reports",
