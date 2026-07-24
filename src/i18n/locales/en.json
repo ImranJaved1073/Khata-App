@@ -99,8 +99,13 @@
   "reports": {
     "title": "Reports",
     "exportPdf": "Export PDF",
-    "exportExcel": "Export Excel",
-    "exportCsv": "Export CSV"
+    "exportExcel": "Export to Excel (.xlsx)",
+    "exportCsv": "Export to CSV",
+    "export": "Export ledger",
+    "exportHint": "Save or share your full ledger as a spreadsheet.",
+    "customers": "Customers",
+    "entries": "Entries",
+    "empty": "Add some entries first — there's nothing to export yet."
   },
   "settings": {
     "title": "Settings",
