@@ -74,7 +74,10 @@
     "itemsCount_one": "{{count}} item",
     "itemsCount_other": "{{count}} items",
     "detailTitle": "Entry",
-    "newBillTitle": "New Bill"
+    "newBillTitle": "New Bill",
+    "editEntryTitle": "Edit Entry",
+    "editBillTitle": "Edit Bill",
+    "edit": "Edit"
   },
   "reports": {
     "title": "Reports",
