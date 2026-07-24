@@ -17,7 +17,7 @@ for detailed per-phase progress.
 | 1 — Customers | List/search/sort, add/edit, archive | ✅ Done |
 | 2 — Entries & running balance | Khata screen, simple cash in/out, home dashboard | ✅ Done |
 | 3 — Itemized bills | Line-item bill form, garment palette, auto-descriptions | ✅ Done |
-| 4 — Edit, delete & history | Audit trail on every mutation | ⬜ Not started |
+| 4 — Edit, delete & history | Audit trail on every mutation | ✅ Done |
 | 5 — Sharing & export | WhatsApp/SMS, PDF, Excel/CSV | ⬜ Not started |
 | 6 — Security & onboarding | PIN/biometric lock, setup wizard | ⬜ Not started |
 | 7 — Polish & release | Empty states, accessibility, store builds | ⬜ Not started |

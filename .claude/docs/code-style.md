@@ -19,7 +19,7 @@ This is the only code allowed to import `src/db/client.ts` or `src/db/schema.ts`
 Every create/edit/delete on a `customer`, `entry`, or `line_item` must call `logAudit()` (`src/repositories/auditRepository.ts`):
 - `create` — no diff needed.
 - `edit` — build the diff with `buildDiff(before, patch)` and only log if it's non-empty.
-- `delete` — soft delete (`isDeleted: true` / `isArchived: true`), never a real `DELETE`.
+- `delete` — soft delete (`isDeleted: true` / `isArchived: true`), never a real `DELETE`. The one exception is `line_items` rows within an edited bill (they have no `isDeleted` column — see [`data-model.md`](data-model.md#line_items)) — those are genuinely deleted, but still get a `logAudit()` "delete" row.
 
 Follow the existing pattern in `customerRepository.ts` (`updateCustomer`, `setCustomerArchived`) for the before/patch/diff/log sequence.
 

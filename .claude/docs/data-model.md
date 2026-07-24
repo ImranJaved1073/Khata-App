@@ -46,6 +46,8 @@ One row on a bill.
 | description | text | auto-generated (see below) unless `descriptionTouched` |
 | descriptionTouched | bool | set once the user manually edits the description, to stop auto-regeneration overwriting it |
 
+**Line items have no `isDeleted` column** — they're only ever meaningful in the context of their parent entry, which is what carries the soft-delete flag. When a bill is edited (`updateEntry()` in [`entryRepository.ts`](../../src/repositories/entryRepository.ts)) and a line is removed, that row is genuinely `DELETE`d — this is the one exception to the "deletes are soft" rule in [`architecture.md`](architecture.md), which only applies to `customers` and `entries` rows. The line's own history isn't lost, though: every add/edit/remove still writes an `audit_log` row (`entity: "line_item"`) keyed by the line's id, same as any other mutation.
+
 ### Auto-generated description (spec 7.3)
 `generateLineItemDescription()` in [`src/repositories/description.ts`](../../src/repositories/description.ts).
 

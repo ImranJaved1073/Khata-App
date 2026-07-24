@@ -15,7 +15,7 @@ Each story below should note its branch name once created, e.g.:
 | 1 — Customers | Searchable customer list (name/phone, live search, sort by balance/recency), add/edit customer form, archive with audit log | B1, B2, B3 | ✅ Done |
 | 2 — Entries & running balance | Customer khata screen (color-coded balance header, newest-first entry list), simple cash-in/cash-out entry, home dashboard totals | C1, C2, D2 | ✅ Done |
 | 3 — Itemized bills | Bill form (line items, size/color pickers, garment palette, quantity/rate/amount), auto-description engine, live bill total. **The centerpiece — budget the most time here.** | C3 | ✅ Done |
-| 4 — Edit, delete & history | Edit/soft-delete any entry with audit_log diff, entry history timeline | C4, C5 | ⬜ Not started |
+| 4 — Edit, delete & history | Edit/soft-delete any entry with audit_log diff, entry history timeline | C4, C5 | ✅ Done |
 | 5 — Sharing & export | WhatsApp/SMS share (bill/statement text + deep link), PDF export (`expo-print`), Excel/CSV export (`xlsx` + `expo-file-system`) | D1, D3 | ⬜ Not started |
 | 6 — Security & onboarding | PIN + biometric app lock (`expo-secure-store` + `expo-local-authentication`), first-run setup wizard, Settings screen | A1, A2 | ⬜ Not started |
 | 7 — Polish & release | Empty states, error handling, large-number formatting, accessibility, app icons/splash, EAS store builds, full QA against every AC in section 8 | all | ⬜ Not started |
@@ -53,10 +53,12 @@ Each story below should note its branch name once created, e.g.:
 - [x] Bill form UX refinement — screen retitled "New Bill"; only one line-item form is open at a time, completed lines collapse to a compact tappable summary row (tap to reopen), and each line's description is folded into the bill note (newline-separated, appended after any text the user already typed) (feature/3-c3-bill-ui-improvements, 2026-07-25)
 
 ## Phase 4 — Edit, delete & history (Stories C4, C5)
-- [ ] Edit entry (reopens correct form type)
-- [ ] Soft delete
-- [ ] Audit log wired into every mutation
-- [ ] Entry history / audit timeline screen
+- [x] Edit entry (reopens correct form type — simple form or the bill line-item editor, pre-filled) (feature/4-c4-edit-entry, 2026-07-25)
+- [x] Per-line-item audit diffs on bill edits (create/edit/delete logged per line, matched by id) (feature/4-c4-edit-entry, 2026-07-25)
+- [x] Soft delete (`deleteEntry`, isDeleted flag, never a real DELETE) (feature/4-c5-delete-history, 2026-07-25)
+- [x] Audit log wired into every mutation (create/edit/delete on entries and line_items) (feature/4-c4-edit-entry, feature/4-c5-delete-history, 2026-07-25)
+- [x] Entry history / audit timeline screen — merges the entry's own audit trail with its current line items' trails, newest first (feature/4-c5-delete-history, 2026-07-25)
+- [x] `EntryDetailScreen` now has Edit / History / Delete actions — Share is still Phase 5 (feature/4-c4-edit-entry, feature/4-c5-delete-history, 2026-07-25)
 
 ## Phase 5 — Sharing & export (Stories D1, D3)
 - [ ] WhatsApp/SMS share (bill & statement text)
@@ -78,5 +80,5 @@ Each story below should note its branch name once created, e.g.:
 
 ## Notes for whoever picks up the next phase
 - Read `.claude/docs/architecture.md`, `data-model.md`, and `ui.md` first — they cover the non-negotiable rules (integer paisa, recomputed balance, audit log on every mutation, garment color palette) that every phase depends on.
-- Phase 4 (edit, delete & history) adds the Edit/Delete/Share buttons and the audit timeline to `EntryDetailScreen` — Phase 3 already built its read-only bill/entry view (line items, total, note, attachment), so extend that screen rather than starting a new one. `getEntry()` (`entryRepository.ts`) already fetches an entry with its line items by id.
-- `createEntry` (Phase 0) does not yet have an `updateEntry`/`deleteEntry` counterpart — Phase 4 needs to add those, following the before/patch/diff/`logAudit` pattern in `customerRepository.ts`, including per-line-item diffs when a bill's line items change.
+- Phase 5 (sharing & export) adds the "Share" action to `EntryDetailScreen` (`entryRepository.ts`'s `getEntry()` already gives you the entry + line items to format) and a "Share statement" action to `CustomerKhataScreen` (already listed in its FAB area per `ui.md`, not yet wired up) — both need `listEntriesForCustomer()` plus `getSettings()` for the currency symbol and bill footer text.
+- `updateEntry`/`deleteEntry` (`entryRepository.ts`, Phase 4) are the pattern to follow for any further entry-level mutation: before/patch/diff/`logAudit`, with soft delete only (`isDeleted`, never a real `DELETE` on `entries`). Line items are the one exception — they have no `isDeleted` column, so `updateEntry` hard-deletes/inserts/updates `line_items` rows directly while still logging a `create`/`edit`/`delete` audit row per line, matched by `id`.
