@@ -33,7 +33,10 @@
     "photo": "تصویر",
     "nameRequired": "نام درکار ہے",
     "save": "محفوظ کریں",
-    "cancel": "منسوخ کریں"
+    "cancel": "منسوخ کریں",
+    "archive": "آرکائیو کریں",
+    "archiveConfirmTitle": "کیا اس گاہک کو آرکائیو کرنا ہے؟",
+    "archiveConfirmMessage": "یہ آپ کی گاہک لسٹ سے چھپ جائے گا، لیکن اس کی تاریخ محفوظ رہے گی۔"
   },
   "khata": {
     "newEntry": "نئی انٹری",
