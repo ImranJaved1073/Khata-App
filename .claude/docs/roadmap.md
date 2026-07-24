@@ -1,6 +1,13 @@
 # Build roadmap & progress
 
-Tracks progress against `docs/Khata_app-Guide.pdf` sections 8 (user stories) and 10 (phase plan). Update the status column as phases complete — check a phase's acceptance criteria (AC) in the PDF before marking it done, not just that screens exist.
+Tracks progress against `docs/Khata_app-Guide.pdf` sections 8 (user stories) and 10 (phase plan). Update the status column as phases complete — check a phase's acceptance criteria (AC) in the PDF before marking it done, not just that screens exist.Update this file at the end of every phase/story you complete, as part of
+the same commit. Keep entries short — this is a log, not documentation.
+
+## Status legend
+- [ ] not started · [~] branch created, in progress · [x] merged to main & branch deleted
+
+Each story below should note its branch name once created, e.g.:
+`[x] Customer list — search, sort, balance display (feature/1-b1-customer-list)`
 
 | Phase | Scope | Stories | Status |
 |---|---|---|---|
@@ -21,6 +28,8 @@ Tracks progress against `docs/Khata_app-Guide.pdf` sections 8 (user stories) and
 - [ ] Switching to Urdu flips the entire UI to RTL with translated strings.
 - [ ] Money never shows floating-point rounding errors.
 - [ ] Nothing is reachable without passing the PIN/biometric lock.
+
+
 
 ## Phase 1 — Customers (Stories B1–B3)
 - [ ] Customer list — search, sort, balance display

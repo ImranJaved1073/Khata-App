@@ -11,3 +11,4 @@ Product spec: `docs/Khata_app-Guide.pdf`. Project-specific instructions (read th
 @.claude/docs/skills.md
 @.claude/docs/i18n.md
 @.claude/docs/roadmap.md
+@.claude/docs/git-workflow.md
