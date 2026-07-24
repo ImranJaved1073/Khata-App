@@ -5,5 +5,6 @@ export * from "./dashboardRepository";
 export * from "./description";
 export * from "./documentRepository";
 export * from "./entryRepository";
+export * from "./exportRepository";
 export * from "./ids";
 export * from "./settingsRepository";
