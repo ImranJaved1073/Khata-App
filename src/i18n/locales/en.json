@@ -19,7 +19,9 @@
     "title": "Customers",
     "searchPlaceholder": "Search by name or phone",
     "addCustomer": "Add Customer",
-    "empty": "No customers yet. Tap + to add your first customer."
+    "empty": "No customers yet. Tap + to add your first customer.",
+    "sortRecent": "Recent",
+    "sortBalance": "Balance"
   },
   "customerForm": {
     "titleNew": "Add Customer",

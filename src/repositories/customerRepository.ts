@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 
 import type { Database } from "../db/client";
-import { customers } from "../db/schema";
-import type { Customer, Paisa } from "../types/models";
+import { customers, entries as entriesTable } from "../db/schema";
+import type { Customer, IsoTimestamp, Paisa } from "../types/models";
 import { buildDiff, logAudit } from "./auditRepository";
+import { computeBalanceFromEntries } from "./balance";
 import { newId, nowIso } from "./ids";
 
 export interface CreateCustomerInput {
@@ -43,6 +44,59 @@ export async function listCustomers(
 ): Promise<Customer[]> {
   const rows = await db.select().from(customers);
   return rows.filter((row) => options.includeArchived || !row.isArchived);
+}
+
+export interface CustomerWithBalance extends Customer {
+  balance: Paisa;
+  /** Latest non-deleted entry's createdAt, falling back to the customer's own updatedAt. */
+  lastActivityAt: IsoTimestamp;
+}
+
+export type CustomerSort = "balance" | "recent";
+
+/** Customer list with recomputed balance + last-activity date, for the list/search/sort screen. */
+export async function listCustomersWithBalance(
+  db: Database,
+  options: { includeArchived?: boolean; sort?: CustomerSort } = {},
+): Promise<CustomerWithBalance[]> {
+  const customerRows = await listCustomers(db, options);
+
+  const entryRows = await db
+    .select({
+      customerId: entriesTable.customerId,
+      direction: entriesTable.direction,
+      amount: entriesTable.amount,
+      createdAt: entriesTable.createdAt,
+    })
+    .from(entriesTable)
+    .where(eq(entriesTable.isDeleted, false));
+
+  const entriesByCustomer = new Map<string, typeof entryRows>();
+  for (const row of entryRows) {
+    const list = entriesByCustomer.get(row.customerId);
+    if (list) {
+      list.push(row);
+    } else {
+      entriesByCustomer.set(row.customerId, [row]);
+    }
+  }
+
+  const withBalance = customerRows.map((customer) => {
+    const customerEntries = entriesByCustomer.get(customer.id) ?? [];
+    const balance = computeBalanceFromEntries(customer.openingBalance, customerEntries);
+    const lastActivityAt = customerEntries.reduce(
+      (latest, entry) => (entry.createdAt > latest ? entry.createdAt : latest),
+      customer.updatedAt,
+    );
+    return { ...customer, balance, lastActivityAt };
+  });
+
+  const sort = options.sort ?? "recent";
+  return withBalance.sort((a, b) =>
+    sort === "balance"
+      ? Math.abs(b.balance) - Math.abs(a.balance)
+      : b.lastActivityAt.localeCompare(a.lastActivityAt),
+  );
 }
 
 export async function getCustomer(
