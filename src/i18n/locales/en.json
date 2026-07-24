@@ -33,7 +33,10 @@
     "photo": "Photo",
     "nameRequired": "Name is required",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "archive": "Archive",
+    "archiveConfirmTitle": "Archive this customer?",
+    "archiveConfirmMessage": "They'll be hidden from your customer list, but their history is kept."
   },
   "khata": {
     "newEntry": "New Entry",

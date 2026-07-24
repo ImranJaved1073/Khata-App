@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -22,6 +23,7 @@ import type { CustomersStackParamList } from "../../navigation/types";
 import {
   createCustomer,
   getCustomer,
+  setCustomerArchived,
   updateCustomer,
 } from "../../repositories/customerRepository";
 import { theme } from "../../theme/theme";
@@ -38,6 +40,7 @@ export function CustomerFormScreen() {
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -106,6 +109,30 @@ export function CustomerFormScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function confirmArchive() {
+    if (!customerId) return;
+    Alert.alert(
+      t("customerForm.archiveConfirmTitle"),
+      t("customerForm.archiveConfirmMessage"),
+      [
+        { text: t("customerForm.cancel"), style: "cancel" },
+        {
+          text: t("customerForm.archive"),
+          style: "destructive",
+          onPress: async () => {
+            setArchiving(true);
+            try {
+              await setCustomerArchived(db, customerId, true);
+              navigation.goBack();
+            } finally {
+              setArchiving(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   if (loading) {
@@ -184,14 +211,14 @@ export function CustomerFormScreen() {
         <Pressable
           style={[styles.button, styles.cancelButton]}
           onPress={() => navigation.goBack()}
-          disabled={saving}
+          disabled={saving || archiving}
         >
           <Text style={styles.cancelButtonText}>{t("customerForm.cancel")}</Text>
         </Pressable>
         <Pressable
           style={[styles.button, styles.saveButton]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || archiving}
         >
           {saving ? (
             <ActivityIndicator color={theme.colors.background} />
@@ -200,6 +227,20 @@ export function CustomerFormScreen() {
           )}
         </Pressable>
       </View>
+
+      {isEdit ? (
+        <Pressable
+          style={styles.archiveButton}
+          onPress={confirmArchive}
+          disabled={saving || archiving}
+        >
+          {archiving ? (
+            <ActivityIndicator color={theme.colors.danger} />
+          ) : (
+            <Text style={styles.archiveButtonText}>{t("customerForm.archive")}</Text>
+          )}
+        </Pressable>
+      ) : null}
     </ScrollView>
   );
 }
@@ -317,5 +358,15 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.background,
     fontWeight: "600",
+  },
+  archiveButton: {
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  archiveButtonText: {
+    ...theme.typography.body,
+    color: theme.colors.danger,
   },
 });
