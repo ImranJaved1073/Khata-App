@@ -7,10 +7,13 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { useTranslation } from "react-i18next";
 
 import { db } from "../../db/client";
+import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
+import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { computeBalanceFromEntries } from "../../repositories/balance";
 import { getCustomer } from "../../repositories/customerRepository";
+import { getStatementDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { listEntriesForCustomer } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
@@ -50,8 +53,42 @@ export function CustomerKhataScreen() {
     }, [load]),
   );
 
+  async function handleShareStatement() {
+    const data = await getStatementDocumentData(db, customerId);
+    if (!data) return;
+    const message = buildStatementText(data);
+    Alert.alert(t("share.statementTitle"), undefined, [
+      {
+        text: t("share.whatsapp"),
+        onPress: () => shareViaWhatsApp(message, data.customer.phone),
+      },
+      { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
+      {
+        text: t("share.pdf"),
+        onPress: async () => {
+          const shared = await sharePdf(buildStatementHtml(data), t("share.statementTitle"));
+          if (!shared) Alert.alert(t("share.unavailable"));
+        },
+      },
+      { text: t("customerForm.cancel"), style: "cancel" },
+    ]);
+  }
+
   useEffect(() => {
-    navigation.setOptions({ title: customer?.name ?? t("app.name") });
+    navigation.setOptions({
+      title: customer?.name ?? t("app.name"),
+      headerRight: () => (
+        <Pressable
+          onPress={handleShareStatement}
+          accessibilityLabel={t("khata.shareStatement")}
+          style={styles.headerButton}
+        >
+          <Ionicons name="share-social-outline" size={22} color={theme.colors.primary} />
+        </Pressable>
+      ),
+    });
+    // handleShareStatement reads fresh from the db each call; customerId/t are stable enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, customer, t]);
 
   function handleNewEntry() {
@@ -178,6 +215,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.background,
+  },
+  headerButton: {
+    paddingHorizontal: theme.spacing.sm,
   },
   balanceHeader: {
     alignItems: "center",

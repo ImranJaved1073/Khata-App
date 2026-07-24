@@ -85,7 +85,16 @@
     "historyEmpty": "ابھی تک کوئی تاریخ نہیں۔",
     "historyCreated": "بنایا گیا",
     "historyEdited": "ترمیم شدہ",
-    "historyDeleted": "حذف شدہ"
+    "historyDeleted": "حذف شدہ",
+    "share": "شیئر کریں"
+  },
+  "share": {
+    "whatsapp": "واٹس ایپ",
+    "sms": "ایس ایم ایس",
+    "pdf": "پی ڈی ایف",
+    "billTitle": "بل شیئر کریں",
+    "statementTitle": "اسٹیٹمنٹ شیئر کریں",
+    "unavailable": "اس ڈیوائس پر شیئرنگ دستیاب نہیں۔"
   },
   "reports": {
     "title": "رپورٹس",

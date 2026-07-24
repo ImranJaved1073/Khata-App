@@ -16,9 +16,12 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { useTranslation } from "react-i18next";
 
 import { db } from "../../db/client";
+import { buildBillHtml, buildBillText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
+import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { getCustomer } from "../../repositories/customerRepository";
+import { getBillDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { deleteEntry, getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
@@ -58,6 +61,28 @@ export function EntryDetailScreen() {
     }, [load]),
   );
 
+  async function handleShare() {
+    if (!entry) return;
+    const data = await getBillDocumentData(db, entry.id);
+    if (!data) return;
+    const message = buildBillText(data);
+    Alert.alert(t("share.billTitle"), undefined, [
+      {
+        text: t("share.whatsapp"),
+        onPress: () => shareViaWhatsApp(message, data.customer.phone),
+      },
+      { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
+      {
+        text: t("share.pdf"),
+        onPress: async () => {
+          const shared = await sharePdf(buildBillHtml(data), t("share.billTitle"));
+          if (!shared) Alert.alert(t("share.unavailable"));
+        },
+      },
+      { text: t("customerForm.cancel"), style: "cancel" },
+    ]);
+  }
+
   function confirmDelete() {
     if (!entry) return;
     Alert.alert(t("entry.deleteConfirmTitle"), t("entry.deleteConfirmMessage"), [
@@ -95,6 +120,10 @@ export function EntryDetailScreen() {
       <Text style={styles.date}>{entry.entryDate}</Text>
 
       <View style={styles.actionsRow}>
+        <Pressable style={styles.actionButton} onPress={handleShare}>
+          <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.actionButtonText}>{t("entry.share")}</Text>
+        </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={() =>
@@ -212,6 +241,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
