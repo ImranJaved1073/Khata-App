@@ -26,7 +26,7 @@ stories on one branch.
    ```
    git checkout -b feature/1-b1-customer-list
    ```
-3. Implement the story, following `code-style.md` and `ui-guidelines.md`.
+3. Implement the story, following `code-style.md` and `ui.md`.
 4. Verify before touching git any further:
    - `tsc --noEmit` is clean
    - The app actually runs (or the relevant screen renders / test passes)
@@ -52,12 +52,8 @@ stories on one branch.
    ```
    git push origin main
    ```
-9. Delete the story branch, local and remote:
-   ```
-   git branch -d feature/1-b1-customer-list
-   git push origin --delete feature/1-b1-customer-list
-   ```
-10. Update `.claude/PROGRESS.md` — check off the story, note the branch name
+
+9. Update `.claude/roadmap.md` — check off the story, note the branch name
     and date — and fold that update into the merge commit (amend it) or a
     tiny follow-up commit directly on `main`.
 
