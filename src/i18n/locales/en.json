@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Khata"
+  },
+  "nav": {
+    "home": "Home",
+    "customers": "Customers",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "home": {
+    "title": "Dashboard",
+    "totalReceivable": "Total receivable",
+    "totalPayable": "Total payable",
+    "todaysActivity": "Today's activity",
+    "newCustomer": "New Customer"
+  },
+  "customers": {
+    "title": "Customers",
+    "searchPlaceholder": "Search by name or phone",
+    "addCustomer": "Add Customer",
+    "empty": "No customers yet. Tap + to add your first customer."
+  },
+  "customerForm": {
+    "titleNew": "Add Customer",
+    "titleEdit": "Edit Customer",
+    "name": "Name",
+    "phone": "Phone",
+    "address": "Address",
+    "openingBalance": "Opening balance",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "khata": {
+    "newEntry": "New Entry",
+    "shareStatement": "Share statement",
+    "empty": "No entries yet."
+  },
+  "entry": {
+    "gaveOnCredit": "Gave on credit (cash out)",
+    "receivedPayment": "Received payment (cash in)",
+    "itemizedBill": "Itemized bill",
+    "amount": "Amount",
+    "date": "Date",
+    "note": "Note",
+    "addLine": "+ Add line",
+    "total": "Total",
+    "save": "Save"
+  },
+  "reports": {
+    "title": "Reports",
+    "exportPdf": "Export PDF",
+    "exportExcel": "Export Excel",
+    "exportCsv": "Export CSV"
+  },
+  "settings": {
+    "title": "Settings",
+    "businessProfile": "Business profile",
+    "language": "Language",
+    "currency": "Currency",
+    "changePin": "Change PIN",
+    "biometric": "Biometric unlock",
+    "billFooter": "Bill footer text",
+    "backupRestore": "Backup / Restore"
+  },
+  "lock": {
+    "enterPin": "Enter PIN",
+    "useBiometric": "Use biometric unlock"
+  }
+}

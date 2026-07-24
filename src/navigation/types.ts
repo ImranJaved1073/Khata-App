@@ -1,0 +1,29 @@
+import type { NavigatorScreenParams } from "@react-navigation/native";
+
+export type CustomersStackParamList = {
+  CustomerList: undefined;
+  CustomerForm: { customerId?: string } | undefined;
+  CustomerKhata: { customerId: string };
+  EntryForm: { customerId: string; entryId?: string; mode: "simple" | "bill" };
+  EntryDetail: { entryId: string };
+  EntryHistory: { entryId: string };
+};
+
+export type HomeStackParamList = {
+  Dashboard: undefined;
+};
+
+export type ReportsStackParamList = {
+  Reports: undefined;
+};
+
+export type SettingsStackParamList = {
+  Settings: undefined;
+};
+
+export type RootTabParamList = {
+  HomeTab: NavigatorScreenParams<HomeStackParamList>;
+  CustomersTab: NavigatorScreenParams<CustomersStackParamList>;
+  ReportsTab: NavigatorScreenParams<ReportsStackParamList>;
+  SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
+};

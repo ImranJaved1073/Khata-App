@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "کھاتہ"
+  },
+  "nav": {
+    "home": "ہوم",
+    "customers": "گاہک",
+    "reports": "رپورٹس",
+    "settings": "ترتیبات"
+  },
+  "home": {
+    "title": "ڈیش بورڈ",
+    "totalReceivable": "کل وصولی",
+    "totalPayable": "کل ادائیگی",
+    "todaysActivity": "آج کی سرگرمی",
+    "newCustomer": "نیا گاہک"
+  },
+  "customers": {
+    "title": "گاہک",
+    "searchPlaceholder": "نام یا فون نمبر سے تلاش کریں",
+    "addCustomer": "گاہک شامل کریں",
+    "empty": "ابھی تک کوئی گاہک نہیں۔ پہلا گاہک شامل کرنے کے لیے + دبائیں۔"
+  },
+  "customerForm": {
+    "titleNew": "گاہک شامل کریں",
+    "titleEdit": "گاہک میں ترمیم کریں",
+    "name": "نام",
+    "phone": "فون نمبر",
+    "address": "پتہ",
+    "openingBalance": "ابتدائی بیلنس",
+    "save": "محفوظ کریں",
+    "cancel": "منسوخ کریں"
+  },
+  "khata": {
+    "newEntry": "نئی انٹری",
+    "shareStatement": "اسٹیٹمنٹ شیئر کریں",
+    "empty": "ابھی تک کوئی انٹری نہیں۔"
+  },
+  "entry": {
+    "gaveOnCredit": "ادھار دیا (نقد باہر)",
+    "receivedPayment": "ادائیگی موصول ہوئی (نقد اندر)",
+    "itemizedBill": "تفصیلی بل",
+    "amount": "رقم",
+    "date": "تاریخ",
+    "note": "نوٹ",
+    "addLine": "+ لائن شامل کریں",
+    "total": "کل رقم",
+    "save": "محفوظ کریں"
+  },
+  "reports": {
+    "title": "رپورٹس",
+    "exportPdf": "PDF ایکسپورٹ کریں",
+    "exportExcel": "ایکسل ایکسپورٹ کریں",
+    "exportCsv": "CSV ایکسپورٹ کریں"
+  },
+  "settings": {
+    "title": "ترتیبات",
+    "businessProfile": "کاروباری پروفائل",
+    "language": "زبان",
+    "currency": "کرنسی",
+    "changePin": "پن تبدیل کریں",
+    "biometric": "بائیو میٹرک ان لاک",
+    "billFooter": "بل فوٹر ٹیکسٹ",
+    "backupRestore": "بیک اپ / بحال کریں"
+  },
+  "lock": {
+    "enterPin": "پن درج کریں",
+    "useBiometric": "بائیو میٹرک ان لاک استعمال کریں"
+  }
+}
