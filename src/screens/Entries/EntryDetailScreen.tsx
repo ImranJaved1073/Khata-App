@@ -1,5 +1,14 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
@@ -11,7 +20,7 @@ import { formatMoney } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { getCustomer } from "../../repositories/customerRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
-import { getEntry } from "../../repositories/entryRepository";
+import { deleteEntry, getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import { GARMENT_COLORS, type GarmentColorLabel } from "../../theme/colors";
 import { theme } from "../../theme/theme";
@@ -30,6 +39,7 @@ export function EntryDetailScreen() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +57,26 @@ export function EntryDetailScreen() {
       load();
     }, [load]),
   );
+
+  function confirmDelete() {
+    if (!entry) return;
+    Alert.alert(t("entry.deleteConfirmTitle"), t("entry.deleteConfirmMessage"), [
+      { text: t("customerForm.cancel"), style: "cancel" },
+      {
+        text: t("entry.delete"),
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteEntry(db, entry.id);
+            navigation.goBack();
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  }
 
   if (loading || !entry) {
     return (
@@ -77,6 +107,23 @@ export function EntryDetailScreen() {
         >
           <Ionicons name="pencil-outline" size={18} color={theme.colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.edit")}</Text>
+        </Pressable>
+        <Pressable
+          style={styles.actionButton}
+          onPress={() => navigation.navigate("EntryHistory", { entryId: entry.id })}
+        >
+          <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.actionButtonText}>{t("entry.history")}</Text>
+        </Pressable>
+        <Pressable style={styles.actionButton} onPress={confirmDelete} disabled={deleting}>
+          {deleting ? (
+            <ActivityIndicator size="small" color={theme.colors.danger} />
+          ) : (
+            <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+          )}
+          <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
+            {t("entry.delete")}
+          </Text>
         </Pressable>
       </View>
 
@@ -183,6 +230,9 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.primary,
     fontWeight: "600",
+  },
+  deleteButtonText: {
+    color: theme.colors.danger,
   },
   lineRow: {
     flexDirection: "row",

@@ -77,7 +77,15 @@
     "newBillTitle": "نیا بل",
     "editEntryTitle": "انٹری میں ترمیم کریں",
     "editBillTitle": "بل میں ترمیم کریں",
-    "edit": "ترمیم کریں"
+    "edit": "ترمیم کریں",
+    "delete": "حذف کریں",
+    "deleteConfirmTitle": "کیا اس انٹری کو حذف کرنا ہے؟",
+    "deleteConfirmMessage": "یہ گاہک کے بیلنس سے ہٹا دیا جائے گا، لیکن تاریخ میں محفوظ رہے گا۔",
+    "history": "تاریخ",
+    "historyEmpty": "ابھی تک کوئی تاریخ نہیں۔",
+    "historyCreated": "بنایا گیا",
+    "historyEdited": "ترمیم شدہ",
+    "historyDeleted": "حذف شدہ"
   },
   "reports": {
     "title": "رپورٹس",

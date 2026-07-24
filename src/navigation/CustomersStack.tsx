@@ -40,7 +40,11 @@ export function CustomersStack() {
         component={EntryDetailScreen}
         options={{ title: t("entry.detailTitle") }}
       />
-      <Stack.Screen name="EntryHistory" component={EntryHistoryScreen} />
+      <Stack.Screen
+        name="EntryHistory"
+        component={EntryHistoryScreen}
+        options={{ title: t("entry.history") }}
+      />
     </Stack.Navigator>
   );
 }
