@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,6 +18,8 @@ import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { listEntriesForCustomer } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { Customer } from "../../types/models";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerKhata">;
@@ -28,6 +30,8 @@ export function CustomerKhataScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
   const { customerId } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [entries, setEntries] = useState<EntryWithLineItems[]>([]);
@@ -83,13 +87,13 @@ export function CustomerKhataScreen() {
           accessibilityLabel={t("khata.shareStatement")}
           style={styles.headerButton}
         >
-          <Ionicons name="share-social-outline" size={22} color={theme.colors.primary} />
+          <Ionicons name="share-social-outline" size={22} color={colors.primary} />
         </Pressable>
       ),
     });
     // handleShareStatement reads fresh from the db each call; customerId/t are stable enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, customer, t]);
+  }, [navigation, customer, t, colors]);
 
   function handleNewEntry() {
     Alert.alert(t("khata.newEntry"), undefined, [
@@ -108,7 +112,7 @@ export function CustomerKhataScreen() {
   if (loading || !customer) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -116,10 +120,10 @@ export function CustomerKhataScreen() {
   const balance = computeBalanceFromEntries(customer.openingBalance, entries);
   const balanceColor =
     balance > 0
-      ? theme.colors.owesMe
+      ? colors.owesMe
       : balance < 0
-        ? theme.colors.iOwe
-        : theme.colors.neutralBalance;
+        ? colors.iOwe
+        : colors.neutralBalance;
   const balanceLabel =
     balance > 0 ? t("khata.theyOweYou") : balance < 0 ? t("khata.youOweThem") : t("khata.settled");
 
@@ -153,7 +157,7 @@ export function CustomerKhataScreen() {
       )}
 
       <Pressable style={styles.fab} accessibilityLabel={t("khata.newEntry")} onPress={handleNewEntry}>
-        <Ionicons name="add" size={28} color={theme.colors.background} />
+        <Ionicons name="add" size={28} color={colors.onPrimary} />
       </Pressable>
     </View>
   );
@@ -169,8 +173,10 @@ function EntryRow({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isCashOut = entry.direction === "cash_out";
-  const color = isCashOut ? theme.colors.owesMe : theme.colors.iOwe;
+  const color = isCashOut ? colors.owesMe : colors.iOwe;
   const sign = isCashOut ? "+" : "-";
   const isBill = entry.type === "bill";
 
@@ -205,16 +211,17 @@ function EntryRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   headerButton: {
     paddingHorizontal: theme.spacing.sm,
@@ -223,13 +230,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: colors.border,
   },
   balanceLabel: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   balanceAmount: {
@@ -246,7 +253,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -260,17 +267,17 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
   rowSubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   rowNote: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   rowAmount: {
@@ -284,7 +291,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   fab: {
@@ -294,7 +301,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,

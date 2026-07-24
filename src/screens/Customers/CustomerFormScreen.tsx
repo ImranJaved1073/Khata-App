@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,8 @@ import {
   setCustomerArchived,
   updateCustomer,
 } from "../../repositories/customerRepository";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerForm">;
@@ -37,6 +39,8 @@ export function CustomerFormScreen() {
   const route = useRoute<Route>();
   const customerId = route.params?.customerId;
   const isEdit = Boolean(customerId);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -138,7 +142,7 @@ export function CustomerFormScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -154,7 +158,7 @@ export function CustomerFormScreen() {
           <Image source={{ uri: photoUri }} style={styles.photo} />
         ) : (
           <View style={styles.photoPlaceholder}>
-            <Ionicons name="camera" size={28} color={theme.colors.textSecondary} />
+            <Ionicons name="camera" size={28} color={colors.textSecondary} />
           </View>
         )}
         <Text style={styles.photoLabel}>{t("customerForm.photo")}</Text>
@@ -169,7 +173,7 @@ export function CustomerFormScreen() {
           }}
           style={styles.input}
           placeholder={t("customerForm.name")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
         />
         {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
       </Field>
@@ -180,7 +184,7 @@ export function CustomerFormScreen() {
           onChangeText={setPhone}
           style={styles.input}
           placeholder={t("customerForm.phone")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
         />
       </Field>
@@ -191,7 +195,7 @@ export function CustomerFormScreen() {
           onChangeText={setAddress}
           style={[styles.input, styles.multilineInput]}
           placeholder={t("customerForm.address")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           multiline
         />
       </Field>
@@ -202,7 +206,7 @@ export function CustomerFormScreen() {
           onChangeText={setOpeningBalanceInput}
           style={styles.input}
           placeholder="0.00"
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           keyboardType="decimal-pad"
         />
       </Field>
@@ -221,7 +225,7 @@ export function CustomerFormScreen() {
           disabled={saving || archiving}
         >
           {saving ? (
-            <ActivityIndicator color={theme.colors.background} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.saveButtonText}>{t("customerForm.save")}</Text>
           )}
@@ -235,7 +239,7 @@ export function CustomerFormScreen() {
           disabled={saving || archiving}
         >
           {archiving ? (
-            <ActivityIndicator color={theme.colors.danger} />
+            <ActivityIndicator color={colors.danger} />
           ) : (
             <Text style={styles.archiveButtonText}>{t("customerForm.archive")}</Text>
           )}
@@ -254,6 +258,8 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>
@@ -265,10 +271,11 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: theme.spacing.md,
@@ -277,7 +284,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   photoPicker: {
     alignItems: "center",
@@ -292,15 +299,15 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   photoLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: theme.spacing.xs,
   },
   field: {
@@ -308,15 +315,15 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: theme.spacing.xs,
   },
   input: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -327,7 +334,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...theme.typography.caption,
-    color: theme.colors.danger,
+    color: colors.danger,
     marginTop: theme.spacing.xs,
   },
   actions: {
@@ -343,20 +350,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelButton: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   cancelButtonText: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   saveButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
   },
   saveButtonText: {
     ...theme.typography.body,
-    color: theme.colors.background,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   archiveButton: {
@@ -367,6 +374,6 @@ const styles = StyleSheet.create({
   },
   archiveButtonText: {
     ...theme.typography.body,
-    color: theme.colors.danger,
+    color: colors.danger,
   },
 });

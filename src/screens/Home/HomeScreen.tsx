@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -12,6 +12,8 @@ import type { HomeStackParamList, RootTabParamList } from "../../navigation/type
 import type { DashboardTotals, TodaysEntry } from "../../repositories/dashboardRepository";
 import { getDashboardTotals, listTodaysEntries } from "../../repositories/dashboardRepository";
 import { getSettings } from "../../repositories/settingsRepository";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = CompositeNavigationProp<
@@ -26,6 +28,8 @@ function todayDate(): string {
 export function HomeScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [totals, setTotals] = useState<DashboardTotals>({
     totalReceivable: 0,
@@ -59,7 +63,7 @@ export function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -79,13 +83,13 @@ export function HomeScreen() {
             <View style={styles.totalsRow}>
               <View style={styles.totalCard}>
                 <Text style={styles.totalLabel}>{t("home.totalReceivable")}</Text>
-                <Text style={[styles.totalAmount, { color: theme.colors.owesMe }]}>
+                <Text style={[styles.totalAmount, { color: colors.owesMe }]}>
                   {formatMoney(totals.totalReceivable, currencySymbol)}
                 </Text>
               </View>
               <View style={styles.totalCard}>
                 <Text style={styles.totalLabel}>{t("home.totalPayable")}</Text>
-                <Text style={[styles.totalAmount, { color: theme.colors.iOwe }]}>
+                <Text style={[styles.totalAmount, { color: colors.iOwe }]}>
                   {formatMoney(totals.totalPayable, currencySymbol)}
                 </Text>
               </View>
@@ -120,8 +124,10 @@ function ActivityRow({
   currencySymbol: string;
 }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const isCashOut = entry.direction === "cash_out";
-  const color = isCashOut ? theme.colors.owesMe : theme.colors.iOwe;
+  const color = isCashOut ? colors.owesMe : colors.iOwe;
 
   return (
     <View style={styles.activityRow}>
@@ -138,16 +144,17 @@ function ActivityRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   list: {
     flex: 1,
@@ -157,7 +164,7 @@ const styles = StyleSheet.create({
   },
   businessName: {
     ...theme.typography.title,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: theme.spacing.md,
   },
   totalsRow: {
@@ -167,13 +174,13 @@ const styles = StyleSheet.create({
   },
   totalCard: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
   },
   totalLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   totalAmount: {
@@ -182,30 +189,30 @@ const styles = StyleSheet.create({
   newCustomerButton: {
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: theme.spacing.lg,
   },
   newCustomerButtonText: {
     ...theme.typography.body,
-    color: theme.colors.background,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   sectionTitle: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: theme.spacing.sm,
   },
   emptyText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   activityRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -216,12 +223,12 @@ const styles = StyleSheet.create({
   },
   activityName: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
   activitySubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   activityAmount: {

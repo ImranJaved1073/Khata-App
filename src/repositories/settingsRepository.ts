@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: Settings = {
   logoUri: null,
   currencySymbol: "Rs",
   language: "en",
+  themeMode: "system",
   pinHash: null,
   biometricEnabled: false,
   billFooterText: null,

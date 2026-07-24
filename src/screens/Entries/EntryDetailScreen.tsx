@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,7 +25,8 @@ import { getBillDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { deleteEntry, getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
-import { GARMENT_COLORS, type GarmentColorLabel } from "../../theme/colors";
+import { GARMENT_COLORS, type AppColors, type GarmentColorLabel } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { Customer, LineItem } from "../../types/models";
 
@@ -37,6 +38,8 @@ export function EntryDetailScreen() {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<Route>();
   const { entryId } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [entry, setEntry] = useState<EntryWithLineItems | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -106,13 +109,13 @@ export function EntryDetailScreen() {
   if (loading || !entry) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   const isCashOut = entry.direction === "cash_out";
-  const color = isCashOut ? theme.colors.owesMe : theme.colors.iOwe;
+  const color = isCashOut ? colors.owesMe : colors.iOwe;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -121,7 +124,7 @@ export function EntryDetailScreen() {
 
       <View style={styles.actionsRow}>
         <Pressable style={styles.actionButton} onPress={handleShare}>
-          <Ionicons name="share-social-outline" size={18} color={theme.colors.primary} />
+          <Ionicons name="share-social-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.share")}</Text>
         </Pressable>
         <Pressable
@@ -134,21 +137,21 @@ export function EntryDetailScreen() {
             })
           }
         >
-          <Ionicons name="pencil-outline" size={18} color={theme.colors.primary} />
+          <Ionicons name="pencil-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.edit")}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
           onPress={() => navigation.navigate("EntryHistory", { entryId: entry.id })}
         >
-          <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
+          <Ionicons name="time-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.history")}</Text>
         </Pressable>
         <Pressable style={styles.actionButton} onPress={confirmDelete} disabled={deleting}>
           {deleting ? (
-            <ActivityIndicator size="small" color={theme.colors.danger} />
+            <ActivityIndicator size="small" color={colors.danger} />
           ) : (
-            <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
           )}
           <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
             {t("entry.delete")}
@@ -198,6 +201,8 @@ function LineItemRow({
   item: LineItem;
   currencySymbol: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const swatchColor = item.color ? GARMENT_COLORS[item.color as GarmentColorLabel] : undefined;
 
   return (
@@ -216,27 +221,28 @@ function LineItemRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: theme.spacing.md,
   },
   customerName: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   date: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.sm,
   },
   actionsRow: {
@@ -253,21 +259,21 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   actionButtonText: {
     ...theme.typography.body,
-    color: theme.colors.primary,
+    color: colors.primary,
     fontWeight: "600",
   },
   deleteButtonText: {
-    color: theme.colors.danger,
+    color: colors.danger,
   },
   lineRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -277,7 +283,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     marginEnd: theme.spacing.sm,
   },
   lineInfo: {
@@ -286,16 +292,16 @@ const styles = StyleSheet.create({
   },
   lineDescription: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   lineSubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   lineAmount: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
   totalRow: {
@@ -305,25 +311,25 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     marginTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
+    borderTopColor: colors.border,
   },
   totalLabel: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   totalAmount: {
     fontSize: 22,
     fontWeight: "700",
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   amountRow: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
   },
   amountLabel: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   amountValue: {
@@ -335,12 +341,12 @@ const styles = StyleSheet.create({
   },
   noteLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   noteText: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   attachment: {
     width: "100%",
