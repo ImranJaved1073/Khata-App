@@ -14,7 +14,7 @@ Each story below should note its branch name once created, e.g.:
 | 0 — Foundation | Expo+TS init, nav shell (tabs+stacks), theme tokens, i18next EN/UR + RTL flip, SQLite/Drizzle schema (5 tables), typed repository layer, seed data (3 demo customers) | none (skeleton) | ✅ Done |
 | 1 — Customers | Searchable customer list (name/phone, live search, sort by balance/recency), add/edit customer form, archive with audit log | B1, B2, B3 | ✅ Done |
 | 2 — Entries & running balance | Customer khata screen (color-coded balance header, newest-first entry list), simple cash-in/cash-out entry, home dashboard totals | C1, C2, D2 | ✅ Done |
-| 3 — Itemized bills | Bill form (line items, size/color pickers, garment palette, quantity/rate/amount), auto-description engine, live bill total. **The centerpiece — budget the most time here.** | C3 | ⬜ Not started |
+| 3 — Itemized bills | Bill form (line items, size/color pickers, garment palette, quantity/rate/amount), auto-description engine, live bill total. **The centerpiece — budget the most time here.** | C3 | ✅ Done |
 | 4 — Edit, delete & history | Edit/soft-delete any entry with audit_log diff, entry history timeline | C4, C5 | ⬜ Not started |
 | 5 — Sharing & export | WhatsApp/SMS share (bill/statement text + deep link), PDF export (`expo-print`), Excel/CSV export (`xlsx` + `expo-file-system`) | D1, D3 | ⬜ Not started |
 | 6 — Security & onboarding | PIN + biometric app lock (`expo-secure-store` + `expo-local-authentication`), first-run setup wizard, Settings screen | A1, A2 | ⬜ Not started |
@@ -44,10 +44,12 @@ Each story below should note its branch name once created, e.g.:
 - [x] Home dashboard totals (feature/2-c1-c2-d2-khata-entries, 2026-07-24)
 
 ## Phase 3 — Itemized bills (Story C3)
-- [ ] Bill form / line-item editor
-- [ ] Size & color pickers (garment palette)
-- [ ] Auto-description engine (+ description_touched override)
-- [ ] Live bill total, multi-line support
+- [x] Bill form / line-item editor (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Size & color pickers (garment palette) (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Auto-description engine (+ description_touched override) (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Live bill total, multi-line support (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Bill created from a customer's khata (entries list) screen — "+ New Entry" now offers Simple entry vs Itemized bill, and the created entry lands in that customer's entry list (feature/3-c3-itemized-bill-form, 2026-07-25)
+- [x] Read-only bill/entry detail view (line items, total, note, attachment) — Edit/Delete/Share/History actions still land in Phases 4–5 (feature/3-c3-itemized-bill-form, 2026-07-25)
 
 ## Phase 4 — Edit, delete & history (Stories C4, C5)
 - [ ] Edit entry (reopens correct form type)
@@ -75,4 +77,5 @@ Each story below should note its branch name once created, e.g.:
 
 ## Notes for whoever picks up the next phase
 - Read `.claude/docs/architecture.md`, `data-model.md`, and `ui.md` first — they cover the non-negotiable rules (integer paisa, recomputed balance, audit log on every mutation, garment color palette) that every phase depends on.
-- Phase 3 (itemized bills) is explicitly called out in the spec as the feature the whole app is built around — don't under-scope it relative to the other phases.
+- Phase 4 (edit, delete & history) adds the Edit/Delete/Share buttons and the audit timeline to `EntryDetailScreen` — Phase 3 already built its read-only bill/entry view (line items, total, note, attachment), so extend that screen rather than starting a new one. `getEntry()` (`entryRepository.ts`) already fetches an entry with its line items by id.
+- `createEntry` (Phase 0) does not yet have an `updateEntry`/`deleteEntry` counterpart — Phase 4 needs to add those, following the before/patch/diff/`logAudit` pattern in `customerRepository.ts`, including per-line-item diffs when a bill's line items change.
