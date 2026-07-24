@@ -26,9 +26,9 @@ Defined in [`src/theme/`](../../src/theme/) — always import from there, never 
 | Customer khata (detail) | Big color-coded balance header, entry list newest-first, "+ New Entry", "Share statement". |
 | New/edit entry — simple | Direction toggle, amount pad, date, note. |
 | New/edit entry — bill ("New Bill") | Line-item editor (7.2): one line open for editing at a time; completed lines collapse to a compact tappable summary row (tap to reopen), live total across collapsed + active lines, note (auto-populated with each line's description, user's own text preserved), attachment, auto descriptions. |
-| Entry detail | Full bill view: Share / Edit / Delete / History. |
+| Entry detail | Full bill view: Share / Edit / History / Delete (Share offers WhatsApp / SMS / PDF — see below). |
 | Entry history | Audit timeline for that entry. |
-| Reports | Totals, date-range filter, export to PDF / Excel / CSV. |
+| Reports | Receivable/payable totals, customer & entry counts, export whole ledger to CSV / Excel (.xlsx). Date-range filter is deferred to Phase 7. |
 | Settings | Business profile, language (EN/UR), currency, change PIN, biometric toggle, bill footer, backup/restore. |
 
 Bottom tabs: **Home · Customers · Reports · Settings** (`src/navigation/RootNavigator.tsx`). Lock screen is a gate outside the tabs, not a tab.
@@ -41,3 +41,8 @@ Bottom tabs: **Home · Customers · Reports · Settings** (`src/navigation/RootN
 - Screens currently under construction render `<PlaceholderScreen title description />` (`src/components/PlaceholderScreen.tsx`). When you build out a screen for real, delete the placeholder usage — don't leave it as a fallback branch.
 - Money is always formatted through a single shared formatter (add one in `src/theme/` or `src/lib/` when the first real money-displaying screen is built) that converts paisa → display string using `settings.currencySymbol`. Never do `amount / 100` inline in a component.
 - Empty states matter — this app replaces a paper notebook for a non-technical user. Every list screen needs a real empty state (see `customers.empty` / `khata.empty` translation keys), not a blank screen.
+
+## Sharing & printed documents (spec D1/D3)
+- A bill/receipt or a customer statement is turned into a **PDF** (`expo-print`) and/or a **plain-text message** (WhatsApp/SMS deep link, generic-share fallback) by the pure builders in `src/lib/documentFormat.ts`. The PDF layout follows the reference bill design: business header + logo initials, "Billed to" / "Khata reference" boxes, a dark-navy line-item table with color swatches, note-left / totals-right, a dark bill-total bar, a previous-balance → balance-owed box, and a footer. Keep new document types consistent with that shell (`documentStyles()` / `htmlShell()`), and keep balance colors (`owesMe` red / `iOwe` green) consistent with the rest of the app.
+- Money in documents/exports still goes through the shared paisa formatters (`formatMoney` for display strings, `formatMoneyInput` for the bare decimal used in spreadsheet cells) — never `amount / 100` inline.
+- The Share entry points: `EntryDetailScreen`'s "Share" action button, and `CustomerKhataScreen`'s header share icon ("Share statement"). Both open an action sheet: WhatsApp · SMS · PDF.

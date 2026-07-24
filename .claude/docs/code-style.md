@@ -15,6 +15,9 @@
 ## Repository layer (`src/repositories/`)
 This is the only code allowed to import `src/db/client.ts` or `src/db/schema.ts`. Screens and components call repository functions, never the Drizzle `db` object directly — this keeps the door open for a future sync layer without touching UI code.
 
+## Pure helper layer (`src/lib/`)
+`src/lib/` holds pure functions and thin wrappers over device APIs (money formatting, document/HTML building, CSV/xlsx building, print/share/file-system plumbing). **`lib/` must never import `db/client.ts`.** Anything that needs data takes it as a plain argument; a repository function does the assembly (e.g. `getBillDocumentData` → `buildBillHtml`, `getExportData` → `buildEntriesCsv`). This keeps formatters unit-testable and side-effect-free, and keeps the db boundary in one place. Types-only imports from `repositories/` into `lib/` are fine (they're erased at compile time and pull in no runtime db dependency).
+
 ### Adding a mutation
 Every create/edit/delete on a `customer`, `entry`, or `line_item` must call `logAudit()` (`src/repositories/auditRepository.ts`):
 - `create` — no diff needed.
