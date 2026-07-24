@@ -33,7 +33,7 @@ Each story below should note its branch name once created, e.g.:
 
 ## Phase 1 — Customers (Stories B1–B3)
 - [x] Customer list — search, sort, balance display (feature/1-b1-customer-list, 2026-07-24)
-- [ ] Add/edit customer form
+- [x] Add/edit customer form (feature/1-b2-add-edit-customer, 2026-07-24)
 - [ ] Archive (soft-hide)
 - [ ] Balance computed from (still empty) entries
 
