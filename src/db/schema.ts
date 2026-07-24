@@ -96,6 +96,9 @@ export const settings = sqliteTable("settings", {
   language: text("language", { enum: ["en", "ur"] })
     .notNull()
     .default("en"),
+  themeMode: text("theme_mode", { enum: ["system", "light", "dark"] })
+    .notNull()
+    .default("system"),
   pinHash: text("pin_hash"),
   biometricEnabled: integer("biometric_enabled", { mode: "boolean" })
     .notNull()

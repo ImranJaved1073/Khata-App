@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Appearance, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
+import type { Theme as NavigationTheme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
@@ -11,46 +12,79 @@ import { db } from "./src/db/client";
 import migrations from "./src/db/drizzle/migrations";
 import { seedDemoData } from "./src/db/seed";
 import { RootNavigator } from "./src/navigation/RootNavigator";
-import { theme } from "./src/theme/theme";
+import { getSettings } from "./src/repositories/settingsRepository";
+import { darkColors, lightColors } from "./src/theme/colors";
+import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
+import type { ThemeMode } from "./src/types/models";
 
 export default function App() {
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
   const [seedError, setSeedError] = useState<Error | null>(null);
-  const [seeded, setSeeded] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode | null>(null);
 
   useEffect(() => {
     if (!migrationsReady) return;
     seedDemoData(db)
-      .then(() => setSeeded(true))
+      .then(() => getSettings(db))
+      .then((settings) => setThemeMode(settings.themeMode))
       .catch((error: Error) => setSeedError(error));
   }, [migrationsReady]);
 
   const error = migrationError ?? seedError;
   if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Database setup failed: {error.message}</Text>
-      </View>
-    );
+    return <BootScreen>{`Database setup failed: ${error.message}`}</BootScreen>;
   }
 
-  if (!migrationsReady || !seeded) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
+  if (!migrationsReady || themeMode === null) {
+    return <BootScreen />;
   }
+
+  return (
+    <ThemeProvider initialMode={themeMode}>
+      <ThemedApp />
+    </ThemeProvider>
+  );
+}
+
+function ThemedApp() {
+  const { colors, scheme } = useTheme();
+
+  const navigationTheme: NavigationTheme = {
+    ...(scheme === "dark" ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(scheme === "dark" ? DarkTheme : DefaultTheme).colors,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.textPrimary,
+      border: colors.border,
+      primary: colors.primary,
+      notification: colors.accent,
+    },
+  };
 
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        <NavigationContainer>
+        <NavigationContainer theme={navigationTheme}>
           <RootNavigator />
         </NavigationContainer>
-        <StatusBar style="auto" />
+        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/** Shown before the theme setting has loaded — follows the OS scheme so there's no light flash in dark mode. */
+function BootScreen({ children }: { children?: string }) {
+  const palette = (Appearance.getColorScheme() ?? "light") === "dark" ? darkColors : lightColors;
+  return (
+    <View style={[styles.center, { backgroundColor: palette.background }]}>
+      {children ? (
+        <Text style={{ color: palette.danger, textAlign: "center" }}>{children}</Text>
+      ) : (
+        <ActivityIndicator size="large" color={palette.primary} />
+      )}
+    </View>
   );
 }
 
@@ -60,11 +94,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.lg,
-  },
-  errorText: {
-    color: theme.colors.danger,
-    textAlign: "center",
+    padding: 24,
   },
 });

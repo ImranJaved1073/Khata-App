@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
@@ -10,6 +10,8 @@ import type { CustomersStackParamList } from "../../navigation/types";
 import { listAuditForEntity } from "../../repositories/auditRepository";
 import { getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { AuditLogEntry } from "../../types/models";
 
@@ -30,6 +32,8 @@ export function EntryHistoryScreen() {
   const { t } = useTranslation();
   const route = useRoute<Route>();
   const { entryId } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [auditRows, setAuditRows] = useState<AuditLogEntry[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
@@ -66,7 +70,7 @@ export function EntryHistoryScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,12 +94,14 @@ function AuditRow({
   currencySymbol: string;
 }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const actionColor =
     row.action === "create"
-      ? theme.colors.success
+      ? colors.success
       : row.action === "delete"
-        ? theme.colors.danger
-        : theme.colors.primary;
+        ? colors.danger
+        : colors.primary;
   const actionLabel =
     row.action === "create"
       ? t("entry.historyCreated")
@@ -127,31 +133,32 @@ function AuditRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: theme.spacing.md,
   },
   emptyText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
     marginTop: theme.spacing.lg,
   },
   row: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
@@ -168,16 +175,16 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...theme.typography.caption,
-    color: theme.colors.background,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   rowEntity: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   rowDate: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   diffBox: {
@@ -186,6 +193,6 @@ const styles = StyleSheet.create({
   },
   diffLine: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
 });

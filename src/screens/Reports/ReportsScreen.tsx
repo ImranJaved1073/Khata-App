@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -15,10 +15,14 @@ import { formatMoney } from "../../lib/money";
 import { getDashboardTotals } from "../../repositories/dashboardRepository";
 import type { ExportData } from "../../repositories/exportRepository";
 import { getExportData } from "../../repositories/exportRepository";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 export function ReportsScreen() {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [totals, setTotals] = useState({ totalReceivable: 0, totalPayable: 0 });
   const [exportData, setExportData] = useState<ExportData | null>(null);
@@ -77,7 +81,7 @@ export function ReportsScreen() {
   if (loading || !exportData) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,13 +94,13 @@ export function ReportsScreen() {
       <View style={styles.totalsRow}>
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>{t("home.totalReceivable")}</Text>
-          <Text style={[styles.totalAmount, { color: theme.colors.owesMe }]}>
+          <Text style={[styles.totalAmount, { color: colors.owesMe }]}>
             {formatMoney(totals.totalReceivable, currency)}
           </Text>
         </View>
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>{t("home.totalPayable")}</Text>
-          <Text style={[styles.totalAmount, { color: theme.colors.iOwe }]}>
+          <Text style={[styles.totalAmount, { color: colors.iOwe }]}>
             {formatMoney(totals.totalPayable, currency)}
           </Text>
         </View>
@@ -131,6 +135,8 @@ export function ReportsScreen() {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -152,6 +158,8 @@ function ExportButton({
   busy: boolean;
   disabled: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
       style={[styles.exportButton, disabled && styles.exportButtonDisabled]}
@@ -159,26 +167,27 @@ function ExportButton({
       disabled={disabled}
     >
       {busy ? (
-        <ActivityIndicator color={theme.colors.primary} />
+        <ActivityIndicator color={colors.primary} />
       ) : (
-        <Ionicons name={icon} size={22} color={theme.colors.primary} />
+        <Ionicons name={icon} size={22} color={colors.primary} />
       )}
       <Text style={styles.exportButtonText}>{label}</Text>
-      <Ionicons name="share-outline" size={18} color={theme.colors.textSecondary} />
+      <Ionicons name="share-outline" size={18} color={colors.textSecondary} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: theme.spacing.md,
@@ -190,13 +199,13 @@ const styles = StyleSheet.create({
   },
   totalCard: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
   },
   totalLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   totalAmount: {
@@ -209,37 +218,37 @@ const styles = StyleSheet.create({
   },
   stat: {
     flex: 1,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     alignItems: "center",
   },
   statValue: {
     ...theme.typography.title,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   statLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: theme.spacing.xs,
   },
   sectionTitle: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: theme.spacing.xs,
   },
   sectionHint: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.md,
   },
   exportButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -249,13 +258,13 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
     flex: 1,
   },
   emptyText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
     marginTop: theme.spacing.md,
   },

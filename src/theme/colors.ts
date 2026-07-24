@@ -25,8 +25,12 @@ export const GARMENT_COLOR_LABELS = Object.keys(
   GARMENT_COLORS,
 ) as GarmentColorLabel[];
 
-/** App-wide semantic colors. Balance colors follow spec: red = owes shop, green = shop owes them. */
-export const colors = {
+/**
+ * App-wide semantic colors, one palette per scheme. Both palettes have identical keys.
+ * Balance colors follow spec: red = owes shop, green = shop owes them (kept clearly
+ * red/green in both schemes, lightened on dark for contrast).
+ */
+export const lightColors = {
   background: "#FFFFFF",
   surface: "#F7F8FA",
   border: "#E2E5EA",
@@ -40,4 +44,28 @@ export const colors = {
   neutralBalance: "#6B7280",
   danger: "#C0392B",
   success: "#20603D",
+  /** Text/icon color that reads correctly on top of a `primary`-filled surface. */
+  onPrimary: "#FFFFFF",
 } as const;
+
+export const darkColors: { [K in keyof typeof lightColors]: string } = {
+  background: "#121417",
+  surface: "#1C1F25",
+  border: "#2C313A",
+  textPrimary: "#F2F3F5",
+  textSecondary: "#9AA1AC",
+  primary: "#4C6FA5",
+  primaryMuted: "#3A4A63",
+  accent: "#E0B84D",
+  owesMe: "#E5705F",
+  iOwe: "#4CAF7D",
+  neutralBalance: "#9AA1AC",
+  danger: "#E5705F",
+  success: "#4CAF7D",
+  onPrimary: "#FFFFFF",
+};
+
+export type AppColors = { [K in keyof typeof lightColors]: string };
+
+/** Default (light) palette. Kept as `colors` for static importers such as the PDF/receipt builder, which always renders light. */
+export const colors: AppColors = lightColors;

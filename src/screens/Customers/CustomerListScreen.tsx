@@ -21,6 +21,8 @@ import type {
 } from "../../repositories/customerRepository";
 import { listCustomersWithBalance } from "../../repositories/customerRepository";
 import { getSettings } from "../../repositories/settingsRepository";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerList">;
@@ -28,6 +30,8 @@ type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerLi
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [customers, setCustomers] = useState<CustomerWithBalance[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
@@ -66,12 +70,12 @@ export function CustomerListScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
-        <Ionicons name="search" size={18} color={theme.colors.textSecondary} />
+        <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder={t("customers.searchPlaceholder")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           style={styles.searchInput}
         />
       </View>
@@ -116,7 +120,7 @@ export function CustomerListScreen() {
         accessibilityLabel={t("customers.addCustomer")}
         onPress={() => navigation.navigate("CustomerForm", undefined)}
       >
-        <Ionicons name="add" size={28} color={theme.colors.background} />
+        <Ionicons name="add" size={28} color={colors.onPrimary} />
       </Pressable>
     </View>
   );
@@ -131,6 +135,8 @@ function SortChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
       onPress={onPress}
@@ -152,12 +158,14 @@ function CustomerRow({
   currencySymbol: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const balanceColor =
     customer.balance > 0
-      ? theme.colors.owesMe
+      ? colors.owesMe
       : customer.balance < 0
-        ? theme.colors.iOwe
-        : theme.colors.neutralBalance;
+        ? colors.iOwe
+        : colors.neutralBalance;
 
   return (
     <Pressable style={styles.row} onPress={onPress}>
@@ -177,10 +185,11 @@ function CustomerRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   searchRow: {
     flexDirection: "row",
@@ -189,16 +198,16 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     gap: theme.spacing.sm,
   },
   searchInput: {
     flex: 1,
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   sortRow: {
     flexDirection: "row",
@@ -211,18 +220,18 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   sortChipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   sortChipText: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   sortChipTextActive: {
-    color: theme.colors.background,
+    color: colors.onPrimary,
   },
   list: {
     flex: 1,
@@ -235,7 +244,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
@@ -246,11 +255,11 @@ const styles = StyleSheet.create({
   },
   rowName: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   rowSubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   rowBalance: {
@@ -264,7 +273,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   fab: {
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,

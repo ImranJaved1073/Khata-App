@@ -1,10 +1,12 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
-import type { GarmentColorLabel } from "../../theme/colors";
+import type { AppColors, GarmentColorLabel } from "../../theme/colors";
 import { GARMENT_COLOR_LABELS, GARMENT_COLORS } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 export const GARMENT_SIZES = ["S", "M", "L", "XL", "XXL"] as const;
@@ -50,6 +52,8 @@ export function BillLineItemCard({
   onRemove?: () => void;
 }) {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const rate = parseMoneyInput(item.rateInput);
   const amount = item.quantity * rate;
 
@@ -63,7 +67,7 @@ export function BillLineItemCard({
         <Text style={styles.cardTitle}>{label}</Text>
         {onRemove ? (
           <Pressable onPress={onRemove} accessibilityLabel={t("entry.removeLine")}>
-            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+            <Ionicons name="trash-outline" size={20} color={colors.danger} />
           </Pressable>
         ) : null}
       </View>
@@ -73,7 +77,7 @@ export function BillLineItemCard({
         onChangeText={(text) => update({ itemName: text })}
         style={styles.input}
         placeholder={t("entry.itemName")}
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
       />
 
       <Text style={styles.fieldLabel}>{t("entry.size")}</Text>
@@ -112,7 +116,7 @@ export function BillLineItemCard({
           onChangeText={(text) => update({ size: text })}
           style={[styles.input, styles.customSizeInput]}
           placeholder={t("entry.customSize")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
         />
       ) : null}
 
@@ -130,7 +134,7 @@ export function BillLineItemCard({
             onPress={() => update({ color: swatchLabel })}
           >
             {item.color === swatchLabel ? (
-              <Ionicons name="checkmark" size={16} color={theme.colors.background} />
+              <Ionicons name="checkmark" size={16} color={colors.onPrimary} />
             ) : null}
           </Pressable>
         ))}
@@ -144,14 +148,14 @@ export function BillLineItemCard({
               style={styles.stepperButton}
               onPress={() => update({ quantity: Math.max(1, item.quantity - 1) })}
             >
-              <Ionicons name="remove" size={18} color={theme.colors.textPrimary} />
+              <Ionicons name="remove" size={18} color={colors.textPrimary} />
             </Pressable>
             <Text style={styles.stepperValue}>{item.quantity}</Text>
             <Pressable
               style={styles.stepperButton}
               onPress={() => update({ quantity: item.quantity + 1 })}
             >
-              <Ionicons name="add" size={18} color={theme.colors.textPrimary} />
+              <Ionicons name="add" size={18} color={colors.textPrimary} />
             </Pressable>
           </View>
         </View>
@@ -164,7 +168,7 @@ export function BillLineItemCard({
             style={styles.input}
             keyboardType="decimal-pad"
             placeholder="0.00"
-            placeholderTextColor={theme.colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
       </View>
@@ -174,7 +178,7 @@ export function BillLineItemCard({
         value={item.description}
         onChangeText={(text) => update({ description: text, descriptionTouched: true })}
         style={styles.input}
-        placeholderTextColor={theme.colors.textSecondary}
+        placeholderTextColor={colors.textSecondary}
       />
 
       <Text style={styles.lineAmount}>{formatMoney(amount, currencySymbol)}</Text>
@@ -192,6 +196,8 @@ export function CollapsedLineRow({
   currencySymbol: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const rate = parseMoneyInput(item.rateInput);
   const amount = item.quantity * rate;
   const swatchColor = item.color
@@ -216,12 +222,13 @@ export function CollapsedLineRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
@@ -233,15 +240,15 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
   input: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.background,
+    color: colors.textPrimary,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -252,7 +259,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   chipRow: {
@@ -266,18 +273,18 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   chipActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
     ...theme.typography.caption,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   chipTextActive: {
-    color: theme.colors.background,
+    color: colors.onPrimary,
   },
   swatchRow: {
     flexDirection: "row",
@@ -290,13 +297,13 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   swatchActive: {
     borderWidth: 2,
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
   },
   row: {
     flexDirection: "row",
@@ -312,9 +319,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs,
@@ -325,21 +332,21 @@ const styles = StyleSheet.create({
   },
   stepperValue: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   lineAmount: {
     ...theme.typography.money,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: "right",
     marginTop: theme.spacing.xs,
   },
   collapsedRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
@@ -349,7 +356,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     marginEnd: theme.spacing.sm,
   },
   collapsedInfo: {
@@ -358,16 +365,16 @@ const styles = StyleSheet.create({
   },
   collapsedDescription: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   collapsedSubtext: {
     ...theme.typography.caption,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   collapsedAmount: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: "600",
   },
 });

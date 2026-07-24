@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -24,6 +24,8 @@ import { createEntry, getEntry, updateEntry } from "../../repositories/entryRepo
 import { newId } from "../../repositories/ids";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { EntryDirection, LineItem } from "../../types/models";
+import type { AppColors } from "../../theme/colors";
+import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { BillLineItemState } from "./BillLineItemCard";
 import {
@@ -109,6 +111,8 @@ export function EntryFormScreen() {
   const route = useRoute<Route>();
   const { customerId, mode, entryId } = route.params;
   const isEditMode = Boolean(entryId);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [loading, setLoading] = useState(isEditMode);
   const [direction, setDirection] = useState<EntryDirection>("cash_out");
@@ -301,7 +305,7 @@ export function EntryFormScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -343,7 +347,7 @@ export function EntryFormScreen() {
               onChangeText={setEntryDate}
               style={[styles.input, styles.dateInput]}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.colors.textSecondary}
+              placeholderTextColor={colors.textSecondary}
             />
             <Pressable style={styles.todayButton} onPress={() => setEntryDate(todayDate())}>
               <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
@@ -357,7 +361,7 @@ export function EntryFormScreen() {
             onChangeText={setNote}
             style={[styles.input, styles.multilineInput]}
             placeholder={t("entry.note")}
-            placeholderTextColor={theme.colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
             multiline
           />
         </Field>
@@ -366,7 +370,7 @@ export function EntryFormScreen() {
           {attachmentUri ? (
             <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
           ) : (
-            <Ionicons name="camera-outline" size={20} color={theme.colors.textSecondary} />
+            <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
           )}
           <Text style={styles.attachmentButtonText}>{t("entry.attachment")}</Text>
         </Pressable>
@@ -380,7 +384,7 @@ export function EntryFormScreen() {
 
         <Pressable style={styles.saveButton} onPress={handleSaveBill} disabled={saving}>
           {saving ? (
-            <ActivityIndicator color={theme.colors.background} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.saveButtonText}>{t("entry.save")}</Text>
           )}
@@ -399,13 +403,13 @@ export function EntryFormScreen() {
         <DirectionOption
           label={t("entry.gaveOnCredit")}
           active={direction === "cash_out"}
-          color={theme.colors.owesMe}
+          color={colors.owesMe}
           onPress={() => setDirection("cash_out")}
         />
         <DirectionOption
           label={t("entry.receivedPayment")}
           active={direction === "cash_in"}
-          color={theme.colors.iOwe}
+          color={colors.iOwe}
           onPress={() => setDirection("cash_in")}
         />
       </View>
@@ -420,7 +424,7 @@ export function EntryFormScreen() {
           style={styles.input}
           keyboardType="decimal-pad"
           placeholder="0.00"
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
         />
         {amountError ? <Text style={styles.errorText}>{amountError}</Text> : null}
       </Field>
@@ -432,7 +436,7 @@ export function EntryFormScreen() {
             onChangeText={setEntryDate}
             style={[styles.input, styles.dateInput]}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.colors.textSecondary}
+            placeholderTextColor={colors.textSecondary}
           />
           <Pressable style={styles.todayButton} onPress={() => setEntryDate(todayDate())}>
             <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
@@ -446,14 +450,14 @@ export function EntryFormScreen() {
           onChangeText={setNote}
           style={[styles.input, styles.multilineInput]}
           placeholder={t("entry.note")}
-          placeholderTextColor={theme.colors.textSecondary}
+          placeholderTextColor={colors.textSecondary}
           multiline
         />
       </Field>
 
       <Pressable style={styles.saveButton} onPress={handleSaveSimple} disabled={saving}>
         {saving ? (
-          <ActivityIndicator color={theme.colors.background} />
+          <ActivityIndicator color={colors.onPrimary} />
         ) : (
           <Text style={styles.saveButtonText}>{t("entry.save")}</Text>
         )}
@@ -473,6 +477,8 @@ function DirectionOption({
   color: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
       style={[
@@ -497,6 +503,8 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>
@@ -508,16 +516,17 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: AppColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.background,
+    backgroundColor: colors.background,
   },
   content: {
     padding: theme.spacing.md,
@@ -533,17 +542,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   directionOptionText: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: "center",
   },
   directionOptionTextActive: {
-    color: theme.colors.background,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   field: {
@@ -551,15 +560,15 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: theme.spacing.xs,
   },
   input: {
     ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -580,17 +589,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: colors.border,
   },
   todayButtonText: {
     ...theme.typography.caption,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   errorText: {
     ...theme.typography.caption,
-    color: theme.colors.danger,
+    color: colors.danger,
     marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.sm,
   },
@@ -598,27 +607,27 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   saveButtonText: {
     ...theme.typography.body,
-    color: theme.colors.background,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   addLineButton: {
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: theme.spacing.lg,
   },
   addLineButtonText: {
     ...theme.typography.body,
-    color: theme.colors.primary,
+    color: colors.primary,
     fontWeight: "600",
   },
   attachmentButton: {
@@ -629,13 +638,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     marginBottom: theme.spacing.md,
   },
   attachmentButtonText: {
     ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    color: colors.textSecondary,
   },
   attachmentThumb: {
     width: 32,
@@ -651,11 +660,11 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     ...theme.typography.heading,
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
   totalAmount: {
     fontSize: 24,
     fontWeight: "700",
-    color: theme.colors.textPrimary,
+    color: colors.textPrimary,
   },
 });

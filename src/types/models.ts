@@ -9,6 +9,7 @@ export type EntryType = "bill" | "simple";
 export type AuditEntity = "customer" | "entry" | "line_item";
 export type AuditAction = "create" | "edit" | "delete";
 export type AppLanguage = "en" | "ur";
+export type ThemeMode = "system" | "light" | "dark";
 export type Actor = "owner" | "helper";
 
 export interface Customer {
@@ -69,6 +70,7 @@ export interface Settings {
   logoUri: string | null;
   currencySymbol: string;
   language: AppLanguage;
+  themeMode: ThemeMode;
   pinHash: string | null;
   biometricEnabled: boolean;
   billFooterText: string | null;
