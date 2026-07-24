@@ -12,7 +12,7 @@ Each story below should note its branch name once created, e.g.:
 | Phase | Scope | Stories | Status |
 |---|---|---|---|
 | 0 — Foundation | Expo+TS init, nav shell (tabs+stacks), theme tokens, i18next EN/UR + RTL flip, SQLite/Drizzle schema (5 tables), typed repository layer, seed data (3 demo customers) | none (skeleton) | ✅ Done |
-| 1 — Customers | Searchable customer list (name/phone, live search, sort by balance/recency), add/edit customer form, archive with audit log | B1, B2, B3 | ⬜ Not started (B1 merged) |
+| 1 — Customers | Searchable customer list (name/phone, live search, sort by balance/recency), add/edit customer form, archive with audit log | B1, B2, B3 | ✅ Done |
 | 2 — Entries & running balance | Customer khata screen (color-coded balance header, newest-first entry list), simple cash-in/cash-out entry, home dashboard totals | C1, C2, D2 | ⬜ Not started |
 | 3 — Itemized bills | Bill form (line items, size/color pickers, garment palette, quantity/rate/amount), auto-description engine, live bill total. **The centerpiece — budget the most time here.** | C3 | ⬜ Not started |
 | 4 — Edit, delete & history | Edit/soft-delete any entry with audit_log diff, entry history timeline | C4, C5 | ⬜ Not started |
@@ -34,8 +34,8 @@ Each story below should note its branch name once created, e.g.:
 ## Phase 1 — Customers (Stories B1–B3)
 - [x] Customer list — search, sort, balance display (feature/1-b1-customer-list, 2026-07-24)
 - [x] Add/edit customer form (feature/1-b2-add-edit-customer, 2026-07-24)
-- [ ] Archive (soft-hide)
-- [ ] Balance computed from (still empty) entries
+- [x] Archive (soft-hide) (feature/1-b3-archive-customer, 2026-07-24)
+- [x] Balance computed from entries (listCustomersWithBalance, feature/1-b1-customer-list, 2026-07-24)
 
 ## Phase 2 — Simple entries & running balance (Stories C1, C2, D2)
 - [ ] Customer khata screen
