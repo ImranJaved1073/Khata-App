@@ -13,7 +13,8 @@
     "totalReceivable": "Total receivable",
     "totalPayable": "Total payable",
     "todaysActivity": "Today's activity",
-    "newCustomer": "New Customer"
+    "newCustomer": "New Customer",
+    "noActivityToday": "No activity yet today."
   },
   "customers": {
     "title": "Customers",
@@ -41,14 +42,19 @@
   "khata": {
     "newEntry": "New Entry",
     "shareStatement": "Share statement",
-    "empty": "No entries yet."
+    "empty": "No entries yet.",
+    "theyOweYou": "They owe you",
+    "youOweThem": "You owe them",
+    "settled": "Settled up"
   },
   "entry": {
     "gaveOnCredit": "Gave on credit (cash out)",
     "receivedPayment": "Received payment (cash in)",
     "itemizedBill": "Itemized bill",
     "amount": "Amount",
+    "amountRequired": "Enter an amount greater than 0",
     "date": "Date",
+    "today": "Today",
     "note": "Note",
     "addLine": "+ Add line",
     "total": "Total",

@@ -13,7 +13,8 @@
     "totalReceivable": "کل وصولی",
     "totalPayable": "کل ادائیگی",
     "todaysActivity": "آج کی سرگرمی",
-    "newCustomer": "نیا گاہک"
+    "newCustomer": "نیا گاہک",
+    "noActivityToday": "آج ابھی تک کوئی سرگرمی نہیں۔"
   },
   "customers": {
     "title": "گاہک",
@@ -41,14 +42,19 @@
   "khata": {
     "newEntry": "نئی انٹری",
     "shareStatement": "اسٹیٹمنٹ شیئر کریں",
-    "empty": "ابھی تک کوئی انٹری نہیں۔"
+    "empty": "ابھی تک کوئی انٹری نہیں۔",
+    "theyOweYou": "ان کے ذمے آپ کی رقم ہے",
+    "youOweThem": "آپ کے ذمے ان کی رقم ہے",
+    "settled": "حساب برابر ہے"
   },
   "entry": {
     "gaveOnCredit": "ادھار دیا (نقد باہر)",
     "receivedPayment": "ادائیگی موصول ہوئی (نقد اندر)",
     "itemizedBill": "تفصیلی بل",
     "amount": "رقم",
+    "amountRequired": "0 سے زیادہ رقم درج کریں",
     "date": "تاریخ",
+    "today": "آج",
     "note": "نوٹ",
     "addLine": "+ لائن شامل کریں",
     "total": "کل رقم",
