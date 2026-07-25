@@ -19,7 +19,7 @@ for detailed per-phase progress.
 | 3 — Itemized bills | Line-item bill form, garment palette, auto-descriptions | ✅ Done |
 | 4 — Edit, delete & history | Audit trail on every mutation | ✅ Done |
 | 5 — Sharing & export | WhatsApp/SMS, PDF, Excel/CSV | ✅ Done |
-| 6 — Security & onboarding | PIN/biometric lock, setup wizard | ⬜ Not started |
+| 6 — Security & onboarding | PIN/biometric lock, setup wizard, light/dark/system theme | ✅ Done |
 | 7 — Polish & release | Empty states, accessibility, store builds | ⬜ Not started |
 
 ## Tech stack

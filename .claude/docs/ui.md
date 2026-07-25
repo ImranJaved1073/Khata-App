@@ -11,6 +11,16 @@ Defined in [`src/theme/`](../../src/theme/) — always import from there, never 
 - `theme.radius`, `theme.typography` — same rule.
 - `GARMENT_COLORS` / `GARMENT_COLOR_LABELS` — the fixed 14-color swatch set for the bill line-item color picker (spec 7.4). Never let a user type a freeform color for a line item.
 
+## Theming (light / dark / system)
+Colors are never static. `src/theme/colors.ts` exports `lightColors` and `darkColors` (identical keys, incl. `onPrimary` — the text/icon color for anything painted with `colors.primary`, e.g. filled buttons). `src/theme/ThemeContext.tsx` resolves the user's setting (`settings.themeMode`: `system` \| `light` \| `dark`, via `useTheme()`) against `Appearance.getColorScheme()` when set to `system`, and exposes the resolved palette as `colors`.
+
+Every screen and subcomponent that renders styled UI must:
+1. Call `const { colors } = useTheme();` (spacing/radius/typography still come from the static `theme` import — only colors are dynamic).
+2. Build its stylesheet with `const makeStyles = (colors: AppColors) => StyleSheet.create({ ... })` instead of a module-level `const styles = StyleSheet.create({...})` — a module-level sheet is evaluated once at import time and would freeze in whichever palette was active first.
+3. Call `const styles = useMemo(() => makeStyles(colors), [colors]);` inside the component (and inside every subcomponent in the same file that also uses `styles` — each one needs its own hook call, not just the top-level export).
+
+The Settings screen's theme picker (`ThemeModeSelector`, `src/components/`) writes the choice to both `useTheme().setMode()` (live preview, no restart needed — unlike the language/RTL switch) and `settings.themeMode` (persisted). `NavigationContainer`'s `theme` prop and the status bar style in `App.tsx` follow the same resolved scheme.
+
 ## Balance color coding (non-negotiable, spec B2/C1)
 - **Red** (`theme.colors.owesMe`) = customer owes the shop (positive balance).
 - **Green** (`theme.colors.iOwe`) = shop owes the customer (negative balance).
@@ -19,7 +29,8 @@ Defined in [`src/theme/`](../../src/theme/) — always import from there, never 
 ## Screen-by-screen reference (spec section 9)
 | Screen | Key contents |
 |---|---|
-| Lock screen | PIN pad + biometric prompt. Appears on launch / resume from background. |
+| Onboarding (first run) | 3-step wizard: business name/currency/language → appearance (theme mode) → optional 4-digit PIN + confirm + biometric toggle. Skippable PIN step — the lock only gates the app once a PIN actually exists. Shown once, tracked by `isOnboarded()` in `expo-secure-store`. |
+| Lock screen | PIN pad + dots, auto-triggered biometric prompt, lockout countdown after 5 failed attempts. Appears on launch (if a PIN is set) and on every resume from background. |
 | Home / Dashboard | Business header, receivable/payable totals, today's activity, quick "+ New Customer". |
 | Customer list | Search bar, sort control, rows (name · balance · last activity), FAB "+". |
 | Add/edit customer | Name, phone, photo, address, opening balance. |
@@ -29,9 +40,9 @@ Defined in [`src/theme/`](../../src/theme/) — always import from there, never 
 | Entry detail | Full bill view: Share / Edit / History / Delete (Share offers WhatsApp / SMS / PDF — see below). |
 | Entry history | Audit timeline for that entry. |
 | Reports | Receivable/payable totals, customer & entry counts, export whole ledger to CSV / Excel (.xlsx). Date-range filter is deferred to Phase 7. |
-| Settings | Business profile, language (EN/UR), currency, change PIN, biometric toggle, bill footer, backup/restore. |
+| Settings | Business profile, language (EN/UR), theme mode (Light/Dark/System), currency, bill footer, set/change/remove PIN, biometric toggle, backup/restore (JSON export via share sheet; restore is Android-only — see `data-model.md` / `skills.md`). |
 
-Bottom tabs: **Home · Customers · Reports · Settings** (`src/navigation/RootNavigator.tsx`). Lock screen is a gate outside the tabs, not a tab.
+Bottom tabs: **Home · Customers · Reports · Settings** (`src/navigation/RootNavigator.tsx`). Onboarding and the lock screen are gates outside the tabs, rendered directly by `App.tsx`, not routes inside any stack.
 
 ## RTL (Urdu)
 - Language switch flips the whole UI via `I18nManager` (`src/i18n/index.ts` → `setAppLanguage`). Never build a screen that assumes LTR — use `flexDirection: "row"` (which RN mirrors automatically under RTL) rather than manually placing elements left/right with `marginLeft`/`marginRight`; prefer `marginStart`/`marginEnd` and `start`/`end` over `left`/`right` for anything that must mirror correctly.
