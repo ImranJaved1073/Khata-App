@@ -12,7 +12,7 @@ import "./src/i18n";
 import { db } from "./src/db/client";
 import migrations from "./src/db/drizzle/migrations";
 import { seedDemoData } from "./src/db/seed";
-import { hasPin, isOnboarded } from "./src/lib/appLock";
+import { hasPin, isOnboarded, RELOCK_AFTER_MS } from "./src/lib/appLock";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { LockScreen } from "./src/screens/Lock/LockScreen";
 import { OnboardingScreen } from "./src/screens/Onboarding/OnboardingScreen";
@@ -60,8 +60,10 @@ export default function App() {
 
 /**
  * Onboarding and the PIN lock are gates outside the tab navigator (ui.md), not routes inside it.
- * The lock re-arms on every background -> active transition, re-checking `hasPin()` fresh each
- * time rather than trusting stale state, so a PIN set/removed in Settings takes effect immediately.
+ * Per spec A2's AC, the lock only re-arms after >= 2 minutes in the background (RELOCK_AFTER_MS),
+ * not on every brief switch away (e.g. picking a photo, opening the share sheet). It re-checks
+ * `hasPin()` fresh each time rather than trusting stale state, so a PIN set/removed in Settings
+ * takes effect on the very next background/foreground cycle.
  */
 function ThemedApp({
   initialOnboarded,
@@ -74,13 +76,20 @@ function ThemedApp({
   const [onboarded, setOnboarded] = useState(initialOnboarded);
   const [locked, setLocked] = useState(initialOnboarded && initialPinSet);
   const appState = useRef<AppStateStatus>(AppState.currentState);
+  const backgroundedAt = useRef<number | null>(null);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (appState.current.match(/inactive|background/) && nextState === "active" && onboarded) {
-        hasPin().then((pinSet) => {
-          if (pinSet) setLocked(true);
-        });
+      if (appState.current === "active" && nextState.match(/inactive|background/)) {
+        backgroundedAt.current = Date.now();
+      } else if (appState.current.match(/inactive|background/) && nextState === "active") {
+        const elapsed = backgroundedAt.current ? Date.now() - backgroundedAt.current : Infinity;
+        if (onboarded && elapsed >= RELOCK_AFTER_MS) {
+          hasPin().then((pinSet) => {
+            if (pinSet) setLocked(true);
+          });
+        }
+        backgroundedAt.current = null;
       }
       appState.current = nextState;
     });

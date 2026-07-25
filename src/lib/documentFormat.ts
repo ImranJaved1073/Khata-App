@@ -293,6 +293,11 @@ export function buildStatementHtml(data: StatementDocumentData): string {
         <div class="doc-type">STATEMENT</div>
         <div class="doc-number">#${shortRef(customer.id)}</div>
         <div class="meta">Generated&nbsp; ${formatDisplayDate(data.generatedAt)}</div>
+        ${
+          data.dateFrom || data.dateTo
+            ? `<div class="meta">Period&nbsp; ${data.dateFrom ? formatDisplayDate(data.dateFrom) : "Start"} – ${data.dateTo ? formatDisplayDate(data.dateTo) : "Today"}</div>`
+            : ""
+        }
       </div>
     </div>`;
 
@@ -345,7 +350,7 @@ export function buildStatementHtml(data: StatementDocumentData): string {
       </thead>
       <tbody>
         <tr>
-          <td>${formatDisplayDate(customer.createdAt)}</td>
+          <td>${formatDisplayDate(data.openingBalanceDate)}</td>
           <td>Opening balance</td>
           <td class="num"></td>
           <td class="num"></td>
@@ -381,6 +386,11 @@ export function buildStatementText(data: StatementDocumentData): string {
   const lines: string[] = [];
   lines.push(`*${businessName}* — Statement`);
   lines.push(`${customer.name}`);
+  if (data.dateFrom || data.dateTo) {
+    lines.push(
+      `Period: ${data.dateFrom ? formatDisplayDate(data.dateFrom) : "Start"} – ${data.dateTo ? formatDisplayDate(data.dateTo) : "Today"}`,
+    );
+  }
   lines.push("");
   lines.push(`Opening balance: ${formatMoney(data.openingBalance, currency)}`);
   for (const row of rows) {

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
@@ -41,25 +41,31 @@ export function EntryHistoryScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [entry, entryAudit, settings] = await Promise.all([
-      getEntry(db, entryId),
-      listAuditForEntity(db, "entry", entryId),
-      getSettings(db),
-    ]);
-    const lineItemAudit = entry
-      ? (
-          await Promise.all(
-            entry.lineItems.map((li) => listAuditForEntity(db, "line_item", li.id)),
-          )
-        ).flat()
-      : [];
-    const merged = [...entryAudit, ...lineItemAudit].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
-    );
-    setAuditRows(merged);
-    setCurrencySymbol(settings.currencySymbol);
-    setLoading(false);
-  }, [entryId]);
+    try {
+      const [entry, entryAudit, settings] = await Promise.all([
+        getEntry(db, entryId),
+        listAuditForEntity(db, "entry", entryId),
+        getSettings(db),
+      ]);
+      const lineItemAudit = entry
+        ? (
+            await Promise.all(
+              entry.lineItems.map((li) => listAuditForEntity(db, "line_item", li.id)),
+            )
+          ).flat()
+        : [];
+      const merged = [...entryAudit, ...lineItemAudit].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt),
+      );
+      setAuditRows(merged);
+      setCurrencySymbol(settings.currencySymbol);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setLoading(false);
+    }
+  }, [entryId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,7 +124,10 @@ function AuditRow({
         </View>
         <Text style={styles.rowEntity}>{entityLabel}</Text>
       </View>
-      <Text style={styles.rowDate}>{new Date(row.createdAt).toLocaleString()}</Text>
+      <Text style={styles.rowDate}>
+        {new Date(row.createdAt).toLocaleString()} ·{" "}
+        {t(row.actor === "helper" ? "entry.historyActorHelper" : "entry.historyActorOwner")}
+      </Text>
       {row.diff ? (
         <View style={styles.diffBox}>
           {Object.entries(row.diff).map(([field, change]) => (

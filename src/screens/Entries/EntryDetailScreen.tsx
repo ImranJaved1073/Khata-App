@@ -49,14 +49,20 @@ export function EntryDetailScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [entryRow, settings] = await Promise.all([getEntry(db, entryId), getSettings(db)]);
-    setEntry(entryRow);
-    setCurrencySymbol(settings.currencySymbol);
-    if (entryRow) {
-      setCustomer(await getCustomer(db, entryRow.customerId));
+    try {
+      const [entryRow, settings] = await Promise.all([getEntry(db, entryId), getSettings(db)]);
+      setEntry(entryRow);
+      setCurrencySymbol(settings.currencySymbol);
+      if (entryRow) {
+        setCustomer(await getCustomer(db, entryRow.customerId));
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [entryId]);
+  }, [entryId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,24 +72,34 @@ export function EntryDetailScreen() {
 
   async function handleShare() {
     if (!entry) return;
-    const data = await getBillDocumentData(db, entry.id);
-    if (!data) return;
-    const message = buildBillText(data);
-    Alert.alert(t("share.billTitle"), undefined, [
-      {
-        text: t("share.whatsapp"),
-        onPress: () => shareViaWhatsApp(message, data.customer.phone),
-      },
-      { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
-      {
-        text: t("share.pdf"),
-        onPress: async () => {
-          const shared = await sharePdf(buildBillHtml(data), t("share.billTitle"));
-          if (!shared) Alert.alert(t("share.unavailable"));
+    try {
+      const data = await getBillDocumentData(db, entry.id);
+      if (!data) return;
+      const message = buildBillText(data);
+      Alert.alert(t("share.billTitle"), undefined, [
+        {
+          text: t("share.whatsapp"),
+          onPress: () => shareViaWhatsApp(message, data.customer.phone),
         },
-      },
-      { text: t("customerForm.cancel"), style: "cancel" },
-    ]);
+        { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
+        {
+          text: t("share.pdf"),
+          onPress: async () => {
+            try {
+              const shared = await sharePdf(buildBillHtml(data), t("share.billTitle"));
+              if (!shared) Alert.alert(t("share.unavailable"));
+            } catch (error) {
+              console.error(error);
+              Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+            }
+          },
+        },
+        { text: t("customerForm.cancel"), style: "cancel" },
+      ]);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
   }
 
   function confirmDelete() {
@@ -98,6 +114,9 @@ export function EntryDetailScreen() {
           try {
             await deleteEntry(db, entry.id);
             navigation.goBack();
+          } catch (error) {
+            console.error(error);
+            Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
           } finally {
             setDeleting(false);
           }
@@ -119,16 +138,21 @@ export function EntryDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {customer ? <Text style={styles.customerName}>{customer.name}</Text> : null}
+      {customer ? (
+        <Text style={styles.customerName} numberOfLines={1}>
+          {customer.name}
+        </Text>
+      ) : null}
       <Text style={styles.date}>{entry.entryDate}</Text>
 
       <View style={styles.actionsRow}>
-        <Pressable style={styles.actionButton} onPress={handleShare}>
+        <Pressable style={styles.actionButton} accessibilityRole="button" onPress={handleShare}>
           <Ionicons name="share-social-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.share")}</Text>
         </Pressable>
         <Pressable
           style={styles.actionButton}
+          accessibilityRole="button"
           onPress={() =>
             navigation.navigate("EntryForm", {
               customerId: entry.customerId,
@@ -142,12 +166,18 @@ export function EntryDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.actionButton}
+          accessibilityRole="button"
           onPress={() => navigation.navigate("EntryHistory", { entryId: entry.id })}
         >
           <Ionicons name="time-outline" size={18} color={colors.primary} />
           <Text style={styles.actionButtonText}>{t("entry.history")}</Text>
         </Pressable>
-        <Pressable style={styles.actionButton} onPress={confirmDelete} disabled={deleting}>
+        <Pressable
+          style={styles.actionButton}
+          accessibilityRole="button"
+          onPress={confirmDelete}
+          disabled={deleting}
+        >
           {deleting ? (
             <ActivityIndicator size="small" color={colors.danger} />
           ) : (
@@ -166,7 +196,9 @@ export function EntryDetailScreen() {
           ))}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>{t("entry.total")}</Text>
-            <Text style={styles.totalAmount}>{formatMoney(entry.amount, currencySymbol)}</Text>
+            <Text style={styles.totalAmount} numberOfLines={1}>
+              {formatMoney(entry.amount, currencySymbol)}
+            </Text>
           </View>
         </>
       ) : (
@@ -174,7 +206,7 @@ export function EntryDetailScreen() {
           <Text style={styles.amountLabel}>
             {isCashOut ? t("entry.gaveOnCredit") : t("entry.receivedPayment")}
           </Text>
-          <Text style={[styles.amountValue, { color }]}>
+          <Text style={[styles.amountValue, { color }]} numberOfLines={1}>
             {formatMoney(entry.amount, currencySymbol)}
           </Text>
         </View>
@@ -216,7 +248,9 @@ function LineItemRow({
           {item.quantity} × {formatMoney(item.rate, currencySymbol)}
         </Text>
       </View>
-      <Text style={styles.lineAmount}>{formatMoney(item.amount, currencySymbol)}</Text>
+      <Text style={styles.lineAmount} numberOfLines={1}>
+        {formatMoney(item.amount, currencySymbol)}
+      </Text>
     </View>
   );
 }

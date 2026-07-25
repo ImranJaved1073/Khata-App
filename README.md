@@ -20,7 +20,7 @@ for detailed per-phase progress.
 | 4 — Edit, delete & history | Audit trail on every mutation | ✅ Done |
 | 5 — Sharing & export | WhatsApp/SMS, PDF, Excel/CSV | ✅ Done |
 | 6 — Security & onboarding | PIN/biometric lock, setup wizard, light/dark/system theme | ✅ Done |
-| 7 — Polish & release | Empty states, accessibility, store builds | ⬜ Not started |
+| 7 — Polish & release | Empty states, error handling, accessibility, large-number formatting, app icons/splash, EAS store builds | 🔶 In progress |
 
 ## Tech stack
 
@@ -43,6 +43,12 @@ No device/emulator available? Verify the app bundles cleanly instead:
 ```
 npx tsc --noEmit
 npx expo export --platform android   # then remove the generated dist/ folder
+```
+
+Store builds go through EAS (`eas.json` has `development`/`preview`/`production` profiles):
+
+```
+eas build --platform android --profile preview
 ```
 
 ## Project structure

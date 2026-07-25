@@ -1,7 +1,11 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
+import type { CustomerSort } from "../repositories/customerRepository";
+
+export type CustomerBalanceFilter = "receivable" | "payable";
+
 export type CustomersStackParamList = {
-  CustomerList: undefined;
+  CustomerList: { initialSort?: CustomerSort; balanceFilter?: CustomerBalanceFilter } | undefined;
   CustomerForm: { customerId?: string } | undefined;
   CustomerKhata: { customerId: string };
   EntryForm: { customerId: string; entryId?: string; mode: "simple" | "bill" };

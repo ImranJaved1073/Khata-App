@@ -2,6 +2,12 @@
   "app": {
     "name": "Khata"
   },
+  "common": {
+    "errorTitle": "Something went wrong",
+    "errorMessage": "Please try again.",
+    "cancel": "Cancel",
+    "retry": "Retry"
+  },
   "nav": {
     "home": "Home",
     "customers": "Customers",
@@ -12,6 +18,7 @@
     "title": "Dashboard",
     "totalReceivable": "Total receivable",
     "totalPayable": "Total payable",
+    "customerCount": "Customers",
     "todaysActivity": "Today's activity",
     "newCustomer": "New Customer",
     "noActivityToday": "No activity yet today."
@@ -21,8 +28,15 @@
     "searchPlaceholder": "Search by name or phone",
     "addCustomer": "Add Customer",
     "empty": "No customers yet. Tap + to add your first customer.",
+    "emptyArchived": "No archived customers.",
     "sortRecent": "Recent",
-    "sortBalance": "Balance"
+    "sortBalance": "Balance",
+    "showArchived": "Archived",
+    "filterReceivable": "Owes me",
+    "filterPayable": "I owe",
+    "clearFilter": "Clear filter: {{filter}}",
+    "emptyFilterReceivable": "No one owes you anything right now.",
+    "emptyFilterPayable": "You don't owe anyone right now."
   },
   "customerForm": {
     "titleNew": "Add Customer",
@@ -33,11 +47,15 @@
     "openingBalance": "Opening balance",
     "photo": "Photo",
     "nameRequired": "Name is required",
+    "phoneInvalid": "Enter a valid phone number, or leave it blank",
     "save": "Save",
     "cancel": "Cancel",
     "archive": "Archive",
     "archiveConfirmTitle": "Archive this customer?",
-    "archiveConfirmMessage": "They'll be hidden from your customer list, but their history is kept."
+    "archiveConfirmMessage": "They'll be hidden from your customer list, but their history is kept.",
+    "unarchive": "Unarchive",
+    "unarchiveConfirmTitle": "Unarchive this customer?",
+    "unarchiveConfirmMessage": "They'll reappear in your main customer list."
   },
   "khata": {
     "newEntry": "New Entry",
@@ -46,7 +64,14 @@
     "empty": "No entries yet.",
     "theyOweYou": "They owe you",
     "youOweThem": "You owe them",
-    "settled": "Settled up"
+    "settled": "Settled up",
+    "showDeleted_one": "Show {{count}} deleted entry",
+    "showDeleted_other": "Show {{count}} deleted entries",
+    "hideDeleted": "Hide deleted entries",
+    "filterStatementByDate": "Filter statement by date",
+    "statementDateFrom": "From",
+    "statementDateTo": "To",
+    "statementRangeSummary": "Statement range: {{from}} – {{to}}"
   },
   "entry": {
     "gaveOnCredit": "Gave on credit (cash out)",
@@ -67,6 +92,8 @@
     "customSize": "Custom",
     "color": "Color",
     "quantity": "Quantity",
+    "quantityDecrease": "Decrease quantity",
+    "quantityIncrease": "Increase quantity",
     "rate": "Rate",
     "description": "Description",
     "attachment": "Attach receipt photo",
@@ -86,6 +113,8 @@
     "historyCreated": "Created",
     "historyEdited": "Edited",
     "historyDeleted": "Deleted",
+    "historyActorOwner": "by Owner",
+    "historyActorHelper": "by Helper",
     "share": "Share"
   },
   "share": {
@@ -105,7 +134,12 @@
     "exportHint": "Save or share your full ledger as a spreadsheet.",
     "customers": "Customers",
     "entries": "Entries",
-    "empty": "Add some entries first — there's nothing to export yet."
+    "empty": "Add some entries first — there's nothing to export yet.",
+    "dateRange": "Date range",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "clearFilter": "Clear",
+    "noEntriesInRange": "No entries in this date range."
   },
   "settings": {
     "title": "Settings",
@@ -144,6 +178,7 @@
     "enterPin": "Enter PIN",
     "useBiometric": "Use biometric unlock",
     "biometricPrompt": "Unlock Khata",
+    "backspace": "Delete digit",
     "incorrectPin": "Incorrect PIN",
     "attemptsLeft_one": "{{count}} attempt left",
     "attemptsLeft_other": "{{count}} attempts left",

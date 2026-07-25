@@ -39,16 +39,22 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const biometricTried = useRef(false);
 
   useEffect(() => {
-    getSettings(db).then((settings) => {
-      setBusinessName(settings.businessName);
-      if (settings.biometricEnabled) {
-        isBiometricAvailable().then((available) => setBiometricReady(available));
-      }
-    });
-    getLockoutState().then((state) => {
-      setAttemptsLeft(state.attemptsLeft);
-      setLockedUntil(state.lockedUntil);
-    });
+    getSettings(db)
+      .then((settings) => {
+        setBusinessName(settings.businessName);
+        if (settings.biometricEnabled) {
+          isBiometricAvailable()
+            .then((available) => setBiometricReady(available))
+            .catch((error: Error) => console.error(error));
+        }
+      })
+      .catch((error: Error) => console.error(error));
+    getLockoutState()
+      .then((state) => {
+        setAttemptsLeft(state.attemptsLeft);
+        setLockedUntil(state.lockedUntil);
+      })
+      .catch((error: Error) => console.error(error));
   }, []);
 
   useEffect(() => {
@@ -64,8 +70,12 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }, [lockedUntil]);
 
   async function tryBiometric() {
-    const ok = await authenticateWithBiometrics(t("lock.biometricPrompt"));
-    if (ok) onUnlock();
+    try {
+      const ok = await authenticateWithBiometrics(t("lock.biometricPrompt"));
+      if (ok) onUnlock();
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   useEffect(() => {
@@ -78,17 +88,23 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
   async function submitPin(candidate: string) {
     setVerifying(true);
-    const result = await verifyPin(candidate);
-    setVerifying(false);
-    if (result.ok) {
-      onUnlock();
-      return;
+    try {
+      const result = await verifyPin(candidate);
+      if (result.ok) {
+        onUnlock();
+        return;
+      }
+      setError(true);
+      setPin("");
+      setAttemptsLeft(result.lockout.attemptsLeft);
+      setLockedUntil(result.lockout.lockedUntil);
+      setTimeout(() => setError(false), 400);
+    } catch (error) {
+      console.error(error);
+      setPin("");
+    } finally {
+      setVerifying(false);
     }
-    setError(true);
-    setPin("");
-    setAttemptsLeft(result.lockout.attemptsLeft);
-    setLockedUntil(result.lockout.lockedUntil);
-    setTimeout(() => setError(false), 400);
   }
 
   function handleDigit(digit: string) {
@@ -154,6 +170,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                   <Pressable
                     key={keyIndex}
                     style={styles.key}
+                    accessibilityLabel={t("lock.useBiometric")}
+                    accessibilityRole="button"
                     onPress={tryBiometric}
                     disabled={!biometricReady || isLocked}
                   >
@@ -172,6 +190,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                   <Pressable
                     key={keyIndex}
                     style={styles.key}
+                    accessibilityLabel={t("lock.backspace")}
+                    accessibilityRole="button"
                     onPress={handleBackspace}
                     disabled={isLocked}
                   >
@@ -185,6 +205,8 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                   style={styles.key}
                   onPress={() => handleDigit(key)}
                   disabled={isLocked}
+                  accessibilityRole="button"
+                  accessibilityLabel={key}
                 >
                   <Text style={styles.keyText}>{key}</Text>
                 </Pressable>

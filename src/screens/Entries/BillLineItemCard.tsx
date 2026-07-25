@@ -66,7 +66,12 @@ export function BillLineItemCard({
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{label}</Text>
         {onRemove ? (
-          <Pressable onPress={onRemove} accessibilityLabel={t("entry.removeLine")}>
+          <Pressable
+            onPress={onRemove}
+            accessibilityLabel={t("entry.removeLine")}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
             <Ionicons name="trash-outline" size={20} color={colors.danger} />
           </Pressable>
         ) : null}
@@ -90,6 +95,9 @@ export function BillLineItemCard({
               !item.isCustomSize && item.size === size && styles.chipActive,
             ]}
             onPress={() => update({ size, isCustomSize: false })}
+            accessibilityRole="button"
+            accessibilityLabel={size}
+            accessibilityState={{ selected: !item.isCustomSize && item.size === size }}
           >
             <Text
               style={[
@@ -104,6 +112,9 @@ export function BillLineItemCard({
         <Pressable
           style={[styles.chip, item.isCustomSize && styles.chipActive]}
           onPress={() => update({ size: "", isCustomSize: true })}
+          accessibilityRole="button"
+          accessibilityLabel={t("entry.customSize")}
+          accessibilityState={{ selected: item.isCustomSize }}
         >
           <Text style={[styles.chipText, item.isCustomSize && styles.chipTextActive]}>
             {t("entry.customSize")}
@@ -126,6 +137,9 @@ export function BillLineItemCard({
           <Pressable
             key={swatchLabel}
             accessibilityLabel={swatchLabel}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item.color === swatchLabel }}
+            hitSlop={4}
             style={[
               styles.swatch,
               { backgroundColor: GARMENT_COLORS[swatchLabel] },
@@ -146,6 +160,9 @@ export function BillLineItemCard({
           <View style={styles.stepperRow}>
             <Pressable
               style={styles.stepperButton}
+              accessibilityLabel={t("entry.quantityDecrease")}
+              accessibilityRole="button"
+              hitSlop={8}
               onPress={() => update({ quantity: Math.max(1, item.quantity - 1) })}
             >
               <Ionicons name="remove" size={18} color={colors.textPrimary} />
@@ -153,6 +170,9 @@ export function BillLineItemCard({
             <Text style={styles.stepperValue}>{item.quantity}</Text>
             <Pressable
               style={styles.stepperButton}
+              accessibilityLabel={t("entry.quantityIncrease")}
+              accessibilityRole="button"
+              hitSlop={8}
               onPress={() => update({ quantity: item.quantity + 1 })}
             >
               <Ionicons name="add" size={18} color={colors.textPrimary} />
@@ -181,7 +201,9 @@ export function BillLineItemCard({
         placeholderTextColor={colors.textSecondary}
       />
 
-      <Text style={styles.lineAmount}>{formatMoney(amount, currencySymbol)}</Text>
+      <Text style={styles.lineAmount} numberOfLines={1}>
+        {formatMoney(amount, currencySymbol)}
+      </Text>
     </View>
   );
 }
@@ -205,7 +227,7 @@ export function CollapsedLineRow({
     : undefined;
 
   return (
-    <Pressable style={styles.collapsedRow} onPress={onPress}>
+    <Pressable style={styles.collapsedRow} onPress={onPress} accessibilityRole="button">
       {swatchColor ? (
         <View style={[styles.collapsedSwatch, { backgroundColor: swatchColor }]} />
       ) : null}
@@ -217,7 +239,9 @@ export function CollapsedLineRow({
           {item.quantity} × {formatMoney(rate, currencySymbol)}
         </Text>
       </View>
-      <Text style={styles.collapsedAmount}>{formatMoney(amount, currencySymbol)}</Text>
+      <Text style={styles.collapsedAmount} numberOfLines={1}>
+        {formatMoney(amount, currencySymbol)}
+      </Text>
     </Pressable>
   );
 }

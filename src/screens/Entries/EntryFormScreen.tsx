@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -131,30 +132,34 @@ export function EntryFormScreen() {
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
 
   useEffect(() => {
-    getSettings(db).then((settings) => setCurrencySymbol(settings.currencySymbol));
+    getSettings(db)
+      .then((settings) => setCurrencySymbol(settings.currencySymbol))
+      .catch((error: Error) => console.error(error));
   }, []);
 
   useEffect(() => {
     if (!entryId) return;
-    getEntry(db, entryId).then((entry) => {
-      if (!entry) {
-        setLoading(false);
-        return;
-      }
-      setEntryDate(entry.entryDate);
-      setNote(entry.note ?? "");
-      setAttachmentUri(entry.attachmentUri);
-      if (entry.type === "simple") {
-        setDirection(entry.direction);
-        setAmountInput(formatMoneyInput(entry.amount));
-      } else {
-        const items = entry.lineItems.map(lineItemStateFromModel);
-        setLineItems(items);
-        setLastAutoNoteBlock(items.map((li) => li.description).filter(Boolean).join("\n"));
-      }
-      setLoading(false);
-    });
-  }, [entryId]);
+    getEntry(db, entryId)
+      .then((entry) => {
+        if (!entry) return;
+        setEntryDate(entry.entryDate);
+        setNote(entry.note ?? "");
+        setAttachmentUri(entry.attachmentUri);
+        if (entry.type === "simple") {
+          setDirection(entry.direction);
+          setAmountInput(formatMoneyInput(entry.amount));
+        } else {
+          const items = entry.lineItems.map(lineItemStateFromModel);
+          setLineItems(items);
+          setLastAutoNoteBlock(items.map((li) => li.description).filter(Boolean).join("\n"));
+        }
+      })
+      .catch((error: Error) => {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      })
+      .finally(() => setLoading(false));
+  }, [entryId, t]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -194,15 +199,20 @@ export function EntryFormScreen() {
   }
 
   async function handlePickAttachment() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setAttachmentUri(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setAttachmentUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     }
   }
 
@@ -234,6 +244,9 @@ export function EntryFormScreen() {
         });
       }
       navigation.goBack();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setSaving(false);
     }
@@ -284,6 +297,9 @@ export function EntryFormScreen() {
         });
       }
       navigation.goBack();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setSaving(false);
     }
@@ -336,7 +352,12 @@ export function EntryFormScreen() {
           onRemove={isEditingExistingLine ? handleRemoveActiveLine : undefined}
         />
 
-        <Pressable style={styles.addLineButton} onPress={handleAddLine}>
+        <Pressable
+          style={styles.addLineButton}
+          onPress={handleAddLine}
+          accessibilityRole="button"
+          accessibilityLabel={t("entry.addLine")}
+        >
           <Text style={styles.addLineButtonText}>{t("entry.addLine")}</Text>
         </Pressable>
 
@@ -349,7 +370,12 @@ export function EntryFormScreen() {
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.textSecondary}
             />
-            <Pressable style={styles.todayButton} onPress={() => setEntryDate(todayDate())}>
+            <Pressable
+              style={styles.todayButton}
+              onPress={() => setEntryDate(todayDate())}
+              accessibilityRole="button"
+              accessibilityLabel={t("entry.today")}
+            >
               <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
             </Pressable>
           </View>
@@ -366,7 +392,12 @@ export function EntryFormScreen() {
           />
         </Field>
 
-        <Pressable style={styles.attachmentButton} onPress={handlePickAttachment}>
+        <Pressable
+          style={styles.attachmentButton}
+          onPress={handlePickAttachment}
+          accessibilityRole="button"
+          accessibilityLabel={t("entry.attachment")}
+        >
           {attachmentUri ? (
             <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
           ) : (
@@ -377,12 +408,20 @@ export function EntryFormScreen() {
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>{t("entry.total")}</Text>
-          <Text style={styles.totalAmount}>{formatMoney(billTotal, currencySymbol)}</Text>
+          <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit>
+            {formatMoney(billTotal, currencySymbol)}
+          </Text>
         </View>
 
         {billError ? <Text style={styles.errorText}>{billError}</Text> : null}
 
-        <Pressable style={styles.saveButton} onPress={handleSaveBill} disabled={saving}>
+        <Pressable
+          style={styles.saveButton}
+          onPress={handleSaveBill}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel={t("entry.save")}
+        >
           {saving ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
@@ -438,7 +477,12 @@ export function EntryFormScreen() {
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.textSecondary}
           />
-          <Pressable style={styles.todayButton} onPress={() => setEntryDate(todayDate())}>
+          <Pressable
+            style={styles.todayButton}
+            onPress={() => setEntryDate(todayDate())}
+            accessibilityRole="button"
+            accessibilityLabel={t("entry.today")}
+          >
             <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
           </Pressable>
         </View>
@@ -455,7 +499,13 @@ export function EntryFormScreen() {
         />
       </Field>
 
-      <Pressable style={styles.saveButton} onPress={handleSaveSimple} disabled={saving}>
+      <Pressable
+        style={styles.saveButton}
+        onPress={handleSaveSimple}
+        disabled={saving}
+        accessibilityRole="button"
+        accessibilityLabel={t("entry.save")}
+      >
         {saving ? (
           <ActivityIndicator color={colors.onPrimary} />
         ) : (
@@ -486,6 +536,9 @@ function DirectionOption({
         active && { backgroundColor: color, borderColor: color },
       ]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
     >
       <Text style={[styles.directionOptionText, active && styles.directionOptionTextActive]}>
         {label}
