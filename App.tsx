@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Appearance, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Appearance, StyleSheet, Text, View } from "react-native";
+import type { AppStateStatus } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import type { Theme as NavigationTheme } from "@react-navigation/native";
@@ -11,22 +12,33 @@ import "./src/i18n";
 import { db } from "./src/db/client";
 import migrations from "./src/db/drizzle/migrations";
 import { seedDemoData } from "./src/db/seed";
+import { hasPin, isOnboarded } from "./src/lib/appLock";
 import { RootNavigator } from "./src/navigation/RootNavigator";
+import { LockScreen } from "./src/screens/Lock/LockScreen";
+import { OnboardingScreen } from "./src/screens/Onboarding/OnboardingScreen";
 import { getSettings } from "./src/repositories/settingsRepository";
 import { darkColors, lightColors } from "./src/theme/colors";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import type { ThemeMode } from "./src/types/models";
 
+interface BootState {
+  themeMode: ThemeMode;
+  onboarded: boolean;
+  pinSet: boolean;
+}
+
 export default function App() {
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
   const [seedError, setSeedError] = useState<Error | null>(null);
-  const [themeMode, setThemeMode] = useState<ThemeMode | null>(null);
+  const [boot, setBoot] = useState<BootState | null>(null);
 
   useEffect(() => {
     if (!migrationsReady) return;
     seedDemoData(db)
-      .then(() => getSettings(db))
-      .then((settings) => setThemeMode(settings.themeMode))
+      .then(() => Promise.all([getSettings(db), isOnboarded(), hasPin()]))
+      .then(([settings, onboardedFlag, pinSet]) => {
+        setBoot({ themeMode: settings.themeMode, onboarded: onboardedFlag, pinSet });
+      })
       .catch((error: Error) => setSeedError(error));
   }, [migrationsReady]);
 
@@ -35,19 +47,45 @@ export default function App() {
     return <BootScreen>{`Database setup failed: ${error.message}`}</BootScreen>;
   }
 
-  if (!migrationsReady || themeMode === null) {
+  if (!migrationsReady || !boot) {
     return <BootScreen />;
   }
 
   return (
-    <ThemeProvider initialMode={themeMode}>
-      <ThemedApp />
+    <ThemeProvider initialMode={boot.themeMode}>
+      <ThemedApp initialOnboarded={boot.onboarded} initialPinSet={boot.pinSet} />
     </ThemeProvider>
   );
 }
 
-function ThemedApp() {
+/**
+ * Onboarding and the PIN lock are gates outside the tab navigator (ui.md), not routes inside it.
+ * The lock re-arms on every background -> active transition, re-checking `hasPin()` fresh each
+ * time rather than trusting stale state, so a PIN set/removed in Settings takes effect immediately.
+ */
+function ThemedApp({
+  initialOnboarded,
+  initialPinSet,
+}: {
+  initialOnboarded: boolean;
+  initialPinSet: boolean;
+}) {
   const { colors, scheme } = useTheme();
+  const [onboarded, setOnboarded] = useState(initialOnboarded);
+  const [locked, setLocked] = useState(initialOnboarded && initialPinSet);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === "active" && onboarded) {
+        hasPin().then((pinSet) => {
+          if (pinSet) setLocked(true);
+        });
+      }
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
+  }, [onboarded]);
 
   const navigationTheme: NavigationTheme = {
     ...(scheme === "dark" ? DarkTheme : DefaultTheme),
@@ -62,12 +100,30 @@ function ThemedApp() {
     },
   };
 
+  let content: React.ReactNode;
+  if (!onboarded) {
+    content = (
+      <OnboardingScreen
+        onComplete={() => {
+          setOnboarded(true);
+          hasPin().then(setLocked);
+        }}
+      />
+    );
+  } else if (locked) {
+    content = <LockScreen onUnlock={() => setLocked(false)} />;
+  } else {
+    content = (
+      <NavigationContainer theme={navigationTheme}>
+        <RootNavigator />
+      </NavigationContainer>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
-        <NavigationContainer theme={navigationTheme}>
-          <RootNavigator />
-        </NavigationContainer>
+        {content}
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
