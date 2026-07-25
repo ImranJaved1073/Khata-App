@@ -30,16 +30,16 @@ The Settings screen's theme picker (`ThemeModeSelector`, `src/components/`) writ
 | Screen | Key contents |
 |---|---|
 | Onboarding (first run) | 3-step wizard: business name/currency/language → appearance (theme mode) → optional 4-digit PIN + confirm + biometric toggle. Skippable PIN step — the lock only gates the app once a PIN actually exists. Shown once, tracked by `isOnboarded()` in `expo-secure-store`. |
-| Lock screen | PIN pad + dots, auto-triggered biometric prompt, lockout countdown after 5 failed attempts. Appears on launch (if a PIN is set) and on every resume from background. |
-| Home / Dashboard | Business header, receivable/payable totals, today's activity, quick "+ New Customer". |
-| Customer list | Search bar, sort control, rows (name · balance · last activity), FAB "+". |
+| Lock screen | PIN pad + dots, auto-triggered biometric prompt, lockout countdown after 5 failed attempts. Appears on launch (if a PIN is set) and on resume from background after `RELOCK_AFTER_MS` (2 min) spent backgrounded — a brief switch-away (photo picker, share sheet) doesn't re-trigger it. |
+| Home / Dashboard | Business header, receivable/payable totals (tapping either navigates to the Customer list pre-filtered to just that side of the ledger — spec D2 "tapping a stat filters the list"), today's activity, quick "+ New Customer". |
+| Customer list | Search bar, sort control, "Archived" filter chip (tapping an archived row opens its edit form, where Unarchive lives), a dismissible "Owes me"/"I owe" filter chip when arrived at via a Home stat tap, rows (name · balance · last activity), FAB "+". |
 | Add/edit customer | Name, phone, photo, address, opening balance. |
-| Customer khata (detail) | Big color-coded balance header, entry list newest-first, "+ New Entry", "Share statement". |
+| Customer khata (detail) | Big color-coded balance header, an optional collapsed "Filter statement by date" range (From/To, scopes only the "Share statement" PDF/text — spec D3 "date-ranged"), entry list newest-first (soft-deleted entries hidden by default, revealed by a "Show N deleted entries" toggle — tapping a revealed deleted row opens its history, not the detail screen), "+ New Entry", "Share statement". |
 | New/edit entry — simple | Direction toggle, amount pad, date, note. |
 | New/edit entry — bill ("New Bill") | Line-item editor (7.2): one line open for editing at a time; completed lines collapse to a compact tappable summary row (tap to reopen), live total across collapsed + active lines, note (auto-populated with each line's description, user's own text preserved), attachment, auto descriptions. |
 | Entry detail | Full bill view: Share / Edit / History / Delete (Share offers WhatsApp / SMS / PDF — see below). |
 | Entry history | Audit timeline for that entry. |
-| Reports | Receivable/payable totals, customer & entry counts, export whole ledger to CSV / Excel (.xlsx). Date-range filter is deferred to Phase 7. |
+| Reports | Receivable/payable totals, customer & entry counts, date-range filter (applies to both the on-screen entry count and the CSV/Excel exports), export to CSV / Excel (.xlsx). |
 | Settings | Business profile, language (EN/UR), theme mode (Light/Dark/System), currency, bill footer, set/change/remove PIN, biometric toggle, backup/restore (JSON export via share sheet; restore is Android-only — see `data-model.md` / `skills.md`). |
 
 Bottom tabs: **Home · Customers · Reports · Settings** (`src/navigation/RootNavigator.tsx`). Onboarding and the lock screen are gates outside the tabs, rendered directly by `App.tsx`, not routes inside any stack.

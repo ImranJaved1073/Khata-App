@@ -13,8 +13,10 @@ const LOCKOUT_UNTIL_KEY = "khata.pin.lockoutUntil";
 const ONBOARDED_KEY = "khata.onboarded";
 
 export const MAX_ATTEMPTS = 5;
-export const LOCKOUT_MS = 60_000;
+export const LOCKOUT_MS = 30_000;
 export const PIN_LENGTH = 4;
+/** Re-lock threshold for background -> active transitions (spec A2 AC). */
+export const RELOCK_AFTER_MS = 2 * 60_000;
 
 async function hashPin(pin: string, salt: string): Promise<string> {
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${pin}`);

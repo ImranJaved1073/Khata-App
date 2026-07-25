@@ -10,7 +10,7 @@ Source of truth for product scope is [`docs/Khata_app-Guide.pdf`](../../docs/Kha
 | Local database | SQLite via `expo-sqlite`, `drizzle-orm` for schema/queries, `drizzle-kit` for migrations |
 | Navigation | React Navigation — one bottom-tab navigator (`RootNavigator`) wrapping four native-stack navigators |
 | i18n | `i18next` + `react-i18next`, resource files in `src/i18n/locales/{en,ur}.json`, `I18nManager` for Urdu RTL |
-| App lock | `expo-local-authentication` (biometrics) + salted-hashed PIN in `expo-secure-store` (Phase 6, built — `src/lib/appLock.ts`; lockout after 5 failed attempts, `LockScreen` + `OnboardingScreen` are launch gates outside the tab navigator, re-armed on every background→active transition) |
+| App lock | `expo-local-authentication` (biometrics) + salted-hashed PIN in `expo-secure-store` (Phase 6, built — `src/lib/appLock.ts`; lockout after 5 failed attempts (30s), `LockScreen` + `OnboardingScreen` are launch gates outside the tab navigator, re-armed after `RELOCK_AFTER_MS` (2 min) spent backgrounded, not on every brief background→active flicker — Phase 7, spec A2 AC) |
 | Theming | `Appearance` API + `src/theme/ThemeContext.tsx` (`ThemeProvider`/`useTheme`), light/dark palettes in `src/theme/colors.ts`, mode (`system`\|`light`\|`dark`) persisted in `settings.themeMode` (Phase 6, built) |
 | PDF / share | `expo-print` (bill/statement → PDF), `expo-sharing` + WhatsApp/SMS deep links (Phase 5, built — `src/lib/documentFormat.ts` builds the HTML/text, `src/lib/share.ts` does the print/deep-link/share plumbing) |
 | Export | `xlsx` for Excel, hand-rolled CSV writer, saved via `expo-file-system/legacy` then shared (Phase 5, built — `src/lib/exportData.ts` + `src/lib/exportFile.ts`) |

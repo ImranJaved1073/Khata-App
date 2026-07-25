@@ -42,7 +42,9 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    isBiometricAvailable().then(setBiometricAvailable);
+    isBiometricAvailable()
+      .then(setBiometricAvailable)
+      .catch((error: Error) => console.error(error));
   }, []);
 
   async function finish() {
@@ -81,6 +83,9 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         return;
       }
       onComplete();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setSaving(false);
     }
@@ -195,6 +200,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
                 onValueChange={setBiometricEnabled}
                 trackColor={{ true: colors.primary, false: colors.border }}
                 thumbColor={colors.onPrimary}
+                accessibilityLabel={t("onboarding.enableBiometric")}
               />
             </View>
           ) : null}
@@ -203,16 +209,33 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
 
       <View style={styles.actions}>
         {step > 0 ? (
-          <Pressable style={[styles.button, styles.backButton]} onPress={goBack} disabled={saving}>
+          <Pressable
+            style={[styles.button, styles.backButton]}
+            onPress={goBack}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel={t("onboarding.back")}
+          >
             <Text style={styles.backButtonText}>{t("onboarding.back")}</Text>
           </Pressable>
         ) : null}
         {step < STEP_COUNT - 1 ? (
-          <Pressable style={[styles.button, styles.nextButton]} onPress={goNext}>
+          <Pressable
+            style={[styles.button, styles.nextButton]}
+            onPress={goNext}
+            accessibilityRole="button"
+            accessibilityLabel={t("onboarding.next")}
+          >
             <Text style={styles.nextButtonText}>{t("onboarding.next")}</Text>
           </Pressable>
         ) : (
-          <Pressable style={[styles.button, styles.nextButton]} onPress={finish} disabled={saving}>
+          <Pressable
+            style={[styles.button, styles.nextButton]}
+            onPress={finish}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel={t("onboarding.finish")}
+          >
             {saving ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (

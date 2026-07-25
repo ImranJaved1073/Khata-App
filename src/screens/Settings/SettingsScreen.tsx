@@ -47,13 +47,18 @@ export function SettingsScreen() {
   const [profileSaved, setProfileSaved] = useState(false);
 
   useEffect(() => {
-    getSettings(db).then((loaded) => {
-      setSettings(loaded);
-      setBusinessName(loaded.businessName ?? "");
-      setCurrencySymbol(loaded.currencySymbol);
-      setBillFooterText(loaded.billFooterText ?? "");
-    });
-  }, []);
+    getSettings(db)
+      .then((loaded) => {
+        setSettings(loaded);
+        setBusinessName(loaded.businessName ?? "");
+        setCurrencySymbol(loaded.currencySymbol);
+        setBillFooterText(loaded.billFooterText ?? "");
+      })
+      .catch((error: Error) => {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      });
+  }, [t]);
 
   async function handleSaveProfile() {
     setProfileSaving(true);
@@ -66,6 +71,9 @@ export function SettingsScreen() {
       setSettings(updated);
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 1500);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setProfileSaving(false);
     }
@@ -73,18 +81,28 @@ export function SettingsScreen() {
 
   async function handleLanguageChange(language: AppLanguage) {
     if (!settings || language === settings.language) return;
-    const rtlChanged = await setAppLanguage(language);
-    const updated = await updateSettings(db, { language });
-    setSettings(updated);
-    if (rtlChanged) {
-      Alert.alert(t("settings.restartTitle"), t("settings.restartForLanguage"));
+    try {
+      const rtlChanged = await setAppLanguage(language);
+      const updated = await updateSettings(db, { language });
+      setSettings(updated);
+      if (rtlChanged) {
+        Alert.alert(t("settings.restartTitle"), t("settings.restartForLanguage"));
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     }
   }
 
   async function handleThemeChange(nextMode: typeof mode) {
     setMode(nextMode);
-    const updated = await updateSettings(db, { themeMode: nextMode });
-    setSettings(updated);
+    try {
+      const updated = await updateSettings(db, { themeMode: nextMode });
+      setSettings(updated);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
   }
 
   if (!settings) {
@@ -131,7 +149,13 @@ export function SettingsScreen() {
           />
         </Field>
         <View style={styles.saveRow}>
-          <Pressable style={styles.saveButton} onPress={handleSaveProfile} disabled={profileSaving}>
+          <Pressable
+            style={styles.saveButton}
+            onPress={handleSaveProfile}
+            disabled={profileSaving}
+            accessibilityRole="button"
+            accessibilityLabel={t("customerForm.save")}
+          >
             {profileSaving ? (
               <ActivityIndicator color={colors.onPrimary} />
             ) : (
@@ -188,8 +212,10 @@ function PinSection({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    hasPinStored().then(setHasPinState);
-    isBiometricAvailable().then(setBiometricHardware);
+    hasPinStored().then(setHasPinState).catch((error: Error) => console.error(error));
+    isBiometricAvailable()
+      .then(setBiometricHardware)
+      .catch((error: Error) => console.error(error));
   }, []);
 
   function resetFlow() {
@@ -217,6 +243,9 @@ function PinSection({
       await savePin(inputA);
       setHasPinState(true);
       resetFlow();
+    } catch (error) {
+      console.error(error);
+      setError(t("common.errorMessage"));
     } finally {
       setBusy(false);
     }
@@ -224,16 +253,22 @@ function PinSection({
 
   async function handleVerifyForChange() {
     setBusy(true);
-    const result = await verifyPin(inputA);
-    setBusy(false);
-    if (!result.ok) {
-      setError(lockoutMessage(result));
-      return;
+    try {
+      const result = await verifyPin(inputA);
+      if (!result.ok) {
+        setError(lockoutMessage(result));
+        return;
+      }
+      setInputA("");
+      setInputB("");
+      setError(null);
+      setFlowMode("new-change");
+    } catch (error) {
+      console.error(error);
+      setError(t("common.errorMessage"));
+    } finally {
+      setBusy(false);
     }
-    setInputA("");
-    setInputB("");
-    setError(null);
-    setFlowMode("new-change");
   }
 
   async function handleSaveNewPin() {
@@ -249,6 +284,9 @@ function PinSection({
     try {
       await savePin(inputA);
       resetFlow();
+    } catch (error) {
+      console.error(error);
+      setError(t("common.errorMessage"));
     } finally {
       setBusy(false);
     }
@@ -256,27 +294,37 @@ function PinSection({
 
   async function handleVerifyForRemove() {
     setBusy(true);
-    const result = await verifyPin(inputA);
-    if (!result.ok) {
+    try {
+      const result = await verifyPin(inputA);
+      if (!result.ok) {
+        setError(lockoutMessage(result));
+        return;
+      }
+      await clearPin();
+      await updateSettings(db, { biometricEnabled: false });
+      onBiometricEnabledChange(false);
+      setHasPinState(false);
+      resetFlow();
+    } catch (error) {
+      console.error(error);
+      setError(t("common.errorMessage"));
+    } finally {
       setBusy(false);
-      setError(lockoutMessage(result));
-      return;
     }
-    await clearPin();
-    await updateSettings(db, { biometricEnabled: false });
-    onBiometricEnabledChange(false);
-    setBusy(false);
-    setHasPinState(false);
-    resetFlow();
   }
 
   async function handleBiometricToggle(value: boolean) {
-    if (value) {
-      const ok = await authenticateWithBiometrics(t("lock.biometricPrompt"));
-      if (!ok) return;
+    try {
+      if (value) {
+        const ok = await authenticateWithBiometrics(t("lock.biometricPrompt"));
+        if (!ok) return;
+      }
+      await updateSettings(db, { biometricEnabled: value });
+      onBiometricEnabledChange(value);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     }
-    await updateSettings(db, { biometricEnabled: value });
-    onBiometricEnabledChange(value);
   }
 
   if (hasPinState === null) {
@@ -288,7 +336,12 @@ function PinSection({
       {flowMode === "idle" ? (
         <View style={styles.pinButtonRow}>
           {!hasPinState ? (
-            <Pressable style={styles.secondaryButton} onPress={() => setFlowMode("setting")}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => setFlowMode("setting")}
+              accessibilityRole="button"
+              accessibilityLabel={t("settings.setPin")}
+            >
               <Text style={styles.secondaryButtonText}>{t("settings.setPin")}</Text>
             </Pressable>
           ) : (
@@ -296,12 +349,16 @@ function PinSection({
               <Pressable
                 style={styles.secondaryButton}
                 onPress={() => setFlowMode("verify-change")}
+                accessibilityRole="button"
+                accessibilityLabel={t("settings.changePin")}
               >
                 <Text style={styles.secondaryButtonText}>{t("settings.changePin")}</Text>
               </Pressable>
               <Pressable
                 style={styles.secondaryButton}
                 onPress={() => setFlowMode("verify-remove")}
+                accessibilityRole="button"
+                accessibilityLabel={t("settings.removePin")}
               >
                 <Text style={styles.dangerButtonText}>{t("settings.removePin")}</Text>
               </Pressable>
@@ -338,13 +395,21 @@ function PinSection({
           </Field>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.pinButtonRow}>
-            <Pressable style={styles.secondaryButton} onPress={resetFlow} disabled={busy}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={resetFlow}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("customerForm.cancel")}
+            >
               <Text style={styles.secondaryButtonText}>{t("customerForm.cancel")}</Text>
             </Pressable>
             <Pressable
               style={styles.saveButton}
               onPress={flowMode === "setting" ? handleSetPin : handleSaveNewPin}
               disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("customerForm.save")}
             >
               {busy ? (
                 <ActivityIndicator color={colors.onPrimary} />
@@ -372,13 +437,21 @@ function PinSection({
           </Field>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <View style={styles.pinButtonRow}>
-            <Pressable style={styles.secondaryButton} onPress={resetFlow} disabled={busy}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={resetFlow}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("customerForm.cancel")}
+            >
               <Text style={styles.secondaryButtonText}>{t("customerForm.cancel")}</Text>
             </Pressable>
             <Pressable
               style={styles.saveButton}
               onPress={flowMode === "verify-change" ? handleVerifyForChange : handleVerifyForRemove}
               disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("onboarding.next")}
             >
               {busy ? (
                 <ActivityIndicator color={colors.onPrimary} />
@@ -398,6 +471,7 @@ function PinSection({
             onValueChange={handleBiometricToggle}
             trackColor={{ true: colors.primary, false: colors.border }}
             thumbColor={colors.onPrimary}
+            accessibilityLabel={t("settings.biometric")}
           />
         </View>
       ) : null}
@@ -422,6 +496,9 @@ function BackupSection() {
         mimeType: BACKUP_MIME,
       });
       if (!shared) Alert.alert(t("share.unavailable"));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setBusy(null);
     }
@@ -462,6 +539,9 @@ function BackupSection() {
 
       await restoreBackupData(db, parsed);
       Alert.alert(t("settings.restoreSuccessTitle"), t("settings.restoreSuccessMessage"));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setBusy(null);
     }
@@ -469,14 +549,26 @@ function BackupSection() {
 
   return (
     <View style={styles.pinButtonRow}>
-      <Pressable style={styles.secondaryButton} onPress={handleExport} disabled={busy !== null}>
+      <Pressable
+        style={styles.secondaryButton}
+        onPress={handleExport}
+        disabled={busy !== null}
+        accessibilityRole="button"
+        accessibilityLabel={t("settings.exportBackup")}
+      >
         {busy === "export" ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
           <Text style={styles.secondaryButtonText}>{t("settings.exportBackup")}</Text>
         )}
       </Pressable>
-      <Pressable style={styles.secondaryButton} onPress={confirmRestore} disabled={busy !== null}>
+      <Pressable
+        style={styles.secondaryButton}
+        onPress={confirmRestore}
+        disabled={busy !== null}
+        accessibilityRole="button"
+        accessibilityLabel={t("settings.restore")}
+      >
         {busy === "restore" ? (
           <ActivityIndicator color={colors.primary} />
         ) : (

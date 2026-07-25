@@ -2,6 +2,12 @@
   "app": {
     "name": "کھاتہ"
   },
+  "common": {
+    "errorTitle": "کچھ غلط ہو گیا",
+    "errorMessage": "براہ کرم دوبارہ کوشش کریں۔",
+    "cancel": "منسوخ کریں",
+    "retry": "دوبارہ کوشش کریں"
+  },
   "nav": {
     "home": "ہوم",
     "customers": "گاہک",
@@ -12,6 +18,7 @@
     "title": "ڈیش بورڈ",
     "totalReceivable": "کل وصولی",
     "totalPayable": "کل ادائیگی",
+    "customerCount": "گاہک",
     "todaysActivity": "آج کی سرگرمی",
     "newCustomer": "نیا گاہک",
     "noActivityToday": "آج ابھی تک کوئی سرگرمی نہیں۔"
@@ -21,8 +28,15 @@
     "searchPlaceholder": "نام یا فون نمبر سے تلاش کریں",
     "addCustomer": "گاہک شامل کریں",
     "empty": "ابھی تک کوئی گاہک نہیں۔ پہلا گاہک شامل کرنے کے لیے + دبائیں۔",
+    "emptyArchived": "کوئی آرکائیو شدہ گاہک نہیں۔",
     "sortRecent": "حالیہ",
-    "sortBalance": "بیلنس"
+    "sortBalance": "بیلنس",
+    "showArchived": "آرکائیو شدہ",
+    "filterReceivable": "مجھ سے واجب الادا",
+    "filterPayable": "میں واجب الادا ہوں",
+    "clearFilter": "فلٹر ہٹائیں: {{filter}}",
+    "emptyFilterReceivable": "فی الحال کوئی آپ کا مقروض نہیں۔",
+    "emptyFilterPayable": "فی الحال آپ کسی کے مقروض نہیں۔"
   },
   "customerForm": {
     "titleNew": "گاہک شامل کریں",
@@ -33,11 +47,15 @@
     "openingBalance": "ابتدائی بیلنس",
     "photo": "تصویر",
     "nameRequired": "نام درکار ہے",
+    "phoneInvalid": "درست فون نمبر درج کریں، یا خالی چھوڑ دیں",
     "save": "محفوظ کریں",
     "cancel": "منسوخ کریں",
     "archive": "آرکائیو کریں",
     "archiveConfirmTitle": "کیا اس گاہک کو آرکائیو کرنا ہے؟",
-    "archiveConfirmMessage": "یہ آپ کی گاہک لسٹ سے چھپ جائے گا، لیکن اس کی تاریخ محفوظ رہے گی۔"
+    "archiveConfirmMessage": "یہ آپ کی گاہک لسٹ سے چھپ جائے گا، لیکن اس کی تاریخ محفوظ رہے گی۔",
+    "unarchive": "آرکائیو سے واپس لائیں",
+    "unarchiveConfirmTitle": "کیا اس گاہک کو واپس لانا ہے؟",
+    "unarchiveConfirmMessage": "یہ دوبارہ آپ کی مرکزی گاہک لسٹ میں نظر آئے گا۔"
   },
   "khata": {
     "newEntry": "نئی انٹری",
@@ -46,7 +64,14 @@
     "empty": "ابھی تک کوئی انٹری نہیں۔",
     "theyOweYou": "ان کے ذمے آپ کی رقم ہے",
     "youOweThem": "آپ کے ذمے ان کی رقم ہے",
-    "settled": "حساب برابر ہے"
+    "settled": "حساب برابر ہے",
+    "showDeleted_one": "{{count}} حذف شدہ انٹری دکھائیں",
+    "showDeleted_other": "{{count}} حذف شدہ انٹریاں دکھائیں",
+    "hideDeleted": "حذف شدہ انٹریاں چھپائیں",
+    "filterStatementByDate": "تاریخ کے حساب سے اسٹیٹمنٹ فلٹر کریں",
+    "statementDateFrom": "سے",
+    "statementDateTo": "تک",
+    "statementRangeSummary": "اسٹیٹمنٹ کی مدت: {{from}} – {{to}}"
   },
   "entry": {
     "gaveOnCredit": "ادھار دیا (نقد باہر)",
@@ -67,6 +92,8 @@
     "customSize": "اپنی مرضی کا",
     "color": "رنگ",
     "quantity": "تعداد",
+    "quantityDecrease": "تعداد کم کریں",
+    "quantityIncrease": "تعداد بڑھائیں",
     "rate": "ریٹ",
     "description": "تفصیل",
     "attachment": "رسید کی تصویر لگائیں",
@@ -86,6 +113,8 @@
     "historyCreated": "بنایا گیا",
     "historyEdited": "ترمیم شدہ",
     "historyDeleted": "حذف شدہ",
+    "historyActorOwner": "مالک کی طرف سے",
+    "historyActorHelper": "معاون کی طرف سے",
     "share": "شیئر کریں"
   },
   "share": {
@@ -105,7 +134,12 @@
     "exportHint": "اپنا پورا کھاتہ اسپریڈشیٹ کے طور پر محفوظ یا شیئر کریں۔",
     "customers": "گاہک",
     "entries": "انٹریاں",
-    "empty": "پہلے کچھ انٹریاں شامل کریں — ابھی ایکسپورٹ کرنے کے لیے کچھ نہیں۔"
+    "empty": "پہلے کچھ انٹریاں شامل کریں — ابھی ایکسپورٹ کرنے کے لیے کچھ نہیں۔",
+    "dateRange": "تاریخ کی حد",
+    "dateFrom": "سے",
+    "dateTo": "تک",
+    "clearFilter": "صاف کریں",
+    "noEntriesInRange": "اس تاریخ کی حد میں کوئی انٹری نہیں۔"
   },
   "settings": {
     "title": "ترتیبات",
@@ -144,6 +178,7 @@
     "enterPin": "پن درج کریں",
     "useBiometric": "بائیو میٹرک ان لاک استعمال کریں",
     "biometricPrompt": "کھاتہ ان لاک کریں",
+    "backspace": "ہندسہ حذف کریں",
     "incorrectPin": "غلط پن",
     "attemptsLeft_one": "{{count}} کوشش باقی ہے",
     "attemptsLeft_other": "{{count}} کوششیں باقی ہیں",

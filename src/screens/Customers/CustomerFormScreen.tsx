@@ -33,6 +33,15 @@ import { theme } from "../../theme/theme";
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerForm">;
 type Route = RouteProp<CustomersStackParamList, "CustomerForm">;
 
+/** Optional field: empty passes. Otherwise a loose but real check — digits (7-15 of them), optionally with a leading +, spaces, hyphens, or parentheses. */
+function isValidPhone(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  if (!/^[+\d][\d\s()-]*$/.test(trimmed)) return false;
+  const digitCount = (trimmed.match(/\d/g) ?? []).length;
+  return digitCount >= 7 && digitCount <= 15;
+}
+
 export function CustomerFormScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
@@ -51,6 +60,8 @@ export function CustomerFormScreen() {
   const [openingBalanceInput, setOpeningBalanceInput] = useState("0.00");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [isArchived, setIsArchived] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -60,39 +71,59 @@ export function CustomerFormScreen() {
 
   useEffect(() => {
     if (!customerId) return;
-    getCustomer(db, customerId).then((customer) => {
-      if (!customer) return;
-      setName(customer.name);
-      setPhone(customer.phone ?? "");
-      setAddress(customer.address ?? "");
-      setOpeningBalanceInput(formatMoneyInput(customer.openingBalance));
-      setPhotoUri(customer.photoUri);
-      setLoading(false);
-    });
-  }, [customerId]);
+    getCustomer(db, customerId)
+      .then((customer) => {
+        if (!customer) return;
+        setName(customer.name);
+        setPhone(customer.phone ?? "");
+        setAddress(customer.address ?? "");
+        setOpeningBalanceInput(formatMoneyInput(customer.openingBalance));
+        setPhotoUri(customer.photoUri);
+        setIsArchived(customer.isArchived);
+      })
+      .catch((error: Error) => {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      })
+      .finally(() => setLoading(false));
+  }, [customerId, t]);
 
   async function handlePickPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.7,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     }
   }
 
   async function handleSave() {
     const trimmedName = name.trim();
+    let hasError = false;
     if (!trimmedName) {
       setNameError(t("customerForm.nameRequired"));
-      return;
+      hasError = true;
+    } else {
+      setNameError(null);
     }
-    setNameError(null);
+    if (!isValidPhone(phone)) {
+      setPhoneError(t("customerForm.phoneInvalid"));
+      hasError = true;
+    } else {
+      setPhoneError(null);
+    }
+    if (hasError) return;
     setSaving(true);
 
     const input = {
@@ -110,33 +141,44 @@ export function CustomerFormScreen() {
         await createCustomer(db, input);
       }
       navigation.goBack();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
       setSaving(false);
     }
   }
 
-  function confirmArchive() {
+  function confirmArchiveToggle() {
     if (!customerId) return;
-    Alert.alert(
-      t("customerForm.archiveConfirmTitle"),
-      t("customerForm.archiveConfirmMessage"),
-      [
-        { text: t("customerForm.cancel"), style: "cancel" },
-        {
-          text: t("customerForm.archive"),
-          style: "destructive",
-          onPress: async () => {
-            setArchiving(true);
-            try {
-              await setCustomerArchived(db, customerId, true);
-              navigation.goBack();
-            } finally {
-              setArchiving(false);
-            }
-          },
+    const nextArchived = !isArchived;
+    const title = nextArchived
+      ? t("customerForm.archiveConfirmTitle")
+      : t("customerForm.unarchiveConfirmTitle");
+    const message = nextArchived
+      ? t("customerForm.archiveConfirmMessage")
+      : t("customerForm.unarchiveConfirmMessage");
+    const confirmLabel = nextArchived ? t("customerForm.archive") : t("customerForm.unarchive");
+
+    Alert.alert(title, message, [
+      { text: t("customerForm.cancel"), style: "cancel" },
+      {
+        text: confirmLabel,
+        style: nextArchived ? "destructive" : "default",
+        onPress: async () => {
+          setArchiving(true);
+          try {
+            await setCustomerArchived(db, customerId, nextArchived);
+            navigation.goBack();
+          } catch (error) {
+            console.error(error);
+            Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+          } finally {
+            setArchiving(false);
+          }
         },
-      ],
-    );
+      },
+    ]);
   }
 
   if (loading) {
@@ -153,7 +195,12 @@ export function CustomerFormScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Pressable style={styles.photoPicker} onPress={handlePickPhoto}>
+      <Pressable
+        style={styles.photoPicker}
+        onPress={handlePickPhoto}
+        accessibilityRole="button"
+        accessibilityLabel={t("customerForm.photo")}
+      >
         {photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.photo} />
         ) : (
@@ -181,12 +228,16 @@ export function CustomerFormScreen() {
       <Field label={t("customerForm.phone")}>
         <TextInput
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(text) => {
+            setPhone(text);
+            if (phoneError) setPhoneError(null);
+          }}
           style={styles.input}
           placeholder={t("customerForm.phone")}
           placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
         />
+        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
       </Field>
 
       <Field label={t("customerForm.address")}>
@@ -216,6 +267,8 @@ export function CustomerFormScreen() {
           style={[styles.button, styles.cancelButton]}
           onPress={() => navigation.goBack()}
           disabled={saving || archiving}
+          accessibilityRole="button"
+          accessibilityLabel={t("customerForm.cancel")}
         >
           <Text style={styles.cancelButtonText}>{t("customerForm.cancel")}</Text>
         </Pressable>
@@ -223,6 +276,8 @@ export function CustomerFormScreen() {
           style={[styles.button, styles.saveButton]}
           onPress={handleSave}
           disabled={saving || archiving}
+          accessibilityRole="button"
+          accessibilityLabel={t("customerForm.save")}
         >
           {saving ? (
             <ActivityIndicator color={colors.onPrimary} />
@@ -235,13 +290,17 @@ export function CustomerFormScreen() {
       {isEdit ? (
         <Pressable
           style={styles.archiveButton}
-          onPress={confirmArchive}
+          onPress={confirmArchiveToggle}
           disabled={saving || archiving}
+          accessibilityRole="button"
+          accessibilityLabel={isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
         >
           {archiving ? (
             <ActivityIndicator color={colors.danger} />
           ) : (
-            <Text style={styles.archiveButtonText}>{t("customerForm.archive")}</Text>
+            <Text style={styles.archiveButtonText}>
+              {isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
+            </Text>
           )}
         </Pressable>
       ) : null}

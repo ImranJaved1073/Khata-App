@@ -1,5 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import { db } from "../../db/client";
 import { formatMoney } from "../../lib/money";
 import type { HomeStackParamList, RootTabParamList } from "../../navigation/types";
+import { listCustomers } from "../../repositories/customerRepository";
 import type { DashboardTotals, TodaysEntry } from "../../repositories/dashboardRepository";
 import { getDashboardTotals, listTodaysEntries } from "../../repositories/dashboardRepository";
 import { getSettings } from "../../repositories/settingsRepository";
@@ -36,23 +45,32 @@ export function HomeScreen() {
     totalPayable: 0,
   });
   const [todaysEntries, setTodaysEntries] = useState<TodaysEntry[]>([]);
+  const [customerCount, setCustomerCount] = useState(0);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [dashboardTotals, entries, settings] = await Promise.all([
-      getDashboardTotals(db),
-      listTodaysEntries(db, todayDate()),
-      getSettings(db),
-    ]);
-    setTotals(dashboardTotals);
-    setTodaysEntries(entries);
-    setBusinessName(settings.businessName);
-    setCurrencySymbol(settings.currencySymbol);
-    setLoading(false);
-  }, []);
+    try {
+      const [dashboardTotals, entries, customers, settings] = await Promise.all([
+        getDashboardTotals(db),
+        listTodaysEntries(db, todayDate()),
+        listCustomers(db),
+        getSettings(db),
+      ]);
+      setTotals(dashboardTotals);
+      setTodaysEntries(entries);
+      setCustomerCount(customers.length);
+      setBusinessName(settings.businessName);
+      setCurrencySymbol(settings.currencySymbol);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,22 +99,68 @@ export function HomeScreen() {
             <Text style={styles.businessName}>{businessName ?? t("app.name")}</Text>
 
             <View style={styles.totalsRow}>
-              <View style={styles.totalCard}>
+              <Pressable
+                style={styles.totalCard}
+                accessibilityRole="button"
+                onPress={() =>
+                  navigation.navigate("CustomersTab", {
+                    screen: "CustomerList",
+                    params: { initialSort: "balance", balanceFilter: "receivable" },
+                  })
+                }
+              >
                 <Text style={styles.totalLabel}>{t("home.totalReceivable")}</Text>
-                <Text style={[styles.totalAmount, { color: colors.owesMe }]}>
+                <Text
+                  style={[styles.totalAmount, { color: colors.owesMe }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {formatMoney(totals.totalReceivable, currencySymbol)}
                 </Text>
-              </View>
-              <View style={styles.totalCard}>
+              </Pressable>
+              <Pressable
+                style={styles.totalCard}
+                accessibilityRole="button"
+                onPress={() =>
+                  navigation.navigate("CustomersTab", {
+                    screen: "CustomerList",
+                    params: { initialSort: "balance", balanceFilter: "payable" },
+                  })
+                }
+              >
                 <Text style={styles.totalLabel}>{t("home.totalPayable")}</Text>
-                <Text style={[styles.totalAmount, { color: colors.iOwe }]}>
+                <Text
+                  style={[styles.totalAmount, { color: colors.iOwe }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {formatMoney(totals.totalPayable, currencySymbol)}
                 </Text>
-              </View>
+              </Pressable>
+              <Pressable
+                style={styles.totalCard}
+                accessibilityRole="button"
+                onPress={() =>
+                  navigation.navigate("CustomersTab", {
+                    screen: "CustomerList",
+                    params: undefined,
+                  })
+                }
+              >
+                <Text style={styles.totalLabel}>{t("home.customerCount")}</Text>
+                <Text
+                  style={[styles.totalAmount, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {customerCount}
+                </Text>
+              </Pressable>
             </View>
 
             <Pressable
               style={styles.newCustomerButton}
+              accessibilityRole="button"
               onPress={() =>
                 navigation.navigate("CustomersTab", { screen: "CustomerForm", params: undefined })
               }
@@ -132,12 +196,14 @@ function ActivityRow({
   return (
     <View style={styles.activityRow}>
       <View style={styles.activityInfo}>
-        <Text style={styles.activityName}>{entry.customerName}</Text>
+        <Text style={styles.activityName} numberOfLines={1}>
+          {entry.customerName}
+        </Text>
         <Text style={styles.activitySubtext}>
           {isCashOut ? t("entry.gaveOnCredit") : t("entry.receivedPayment")}
         </Text>
       </View>
-      <Text style={[styles.activityAmount, { color }]}>
+      <Text style={[styles.activityAmount, { color }]} numberOfLines={1}>
         {formatMoney(entry.amount, currencySymbol)}
       </Text>
     </View>

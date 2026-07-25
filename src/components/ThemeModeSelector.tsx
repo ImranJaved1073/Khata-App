@@ -36,6 +36,9 @@ export function ThemeModeSelector({
             key={mode}
             style={[styles.option, active && styles.optionActive]}
             onPress={() => onChange(mode)}
+            accessibilityRole="button"
+            accessibilityLabel={labels[mode]}
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.optionText, active && styles.optionTextActive]}>
               {labels[mode]}

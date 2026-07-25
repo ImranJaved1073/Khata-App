@@ -31,6 +31,9 @@ export function LanguageSelector({
             key={code}
             style={[styles.option, active && styles.optionActive]}
             onPress={() => onChange(code)}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: active }}
           >
             <Text style={[styles.optionText, active && styles.optionTextActive]}>{label}</Text>
           </Pressable>

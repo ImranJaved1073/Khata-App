@@ -1,5 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -9,12 +11,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
 import { db } from "../../db/client";
 import { formatMoney } from "../../lib/money";
-import type { CustomersStackParamList } from "../../navigation/types";
+import type { CustomerBalanceFilter, CustomersStackParamList } from "../../navigation/types";
 import type {
   CustomerSort,
   CustomerWithBalance,
@@ -26,29 +29,55 @@ import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerList">;
+type Route = RouteProp<CustomersStackParamList, "CustomerList">;
 
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<Navigation>();
+  const route = useRoute<Route>();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [customers, setCustomers] = useState<CustomerWithBalance[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<CustomerSort>("recent");
+  const [sort, setSort] = useState<CustomerSort>(route.params?.initialSort ?? "recent");
+  const [showArchived, setShowArchived] = useState(false);
+  const [balanceFilter, setBalanceFilter] = useState<CustomerBalanceFilter | null>(
+    route.params?.balanceFilter ?? null,
+  );
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (activeSort: CustomerSort) => {
-    setLoading(true);
-    const [customerRows, settings] = await Promise.all([
-      listCustomersWithBalance(db, { sort: activeSort }),
-      getSettings(db),
-    ]);
-    setCustomers(customerRows);
-    setCurrencySymbol(settings.currencySymbol);
-    setLoading(false);
-  }, []);
+  // navigate() to an already-mounted CustomerList (e.g. tapping a different Home stat) updates
+  // route.params without remounting the screen, so state seeded from useState's initializer alone
+  // would go stale — re-sync (including clearing back to defaults) whenever the params actually
+  // change, without stomping on the user's own manual chip taps in between navigations.
+  const paramsKey = JSON.stringify(route.params ?? {});
+  useEffect(() => {
+    setSort(route.params?.initialSort ?? "recent");
+    setBalanceFilter(route.params?.balanceFilter ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey]);
+
+  const load = useCallback(
+    async (activeSort: CustomerSort) => {
+      setLoading(true);
+      try {
+        const [customerRows, settings] = await Promise.all([
+          listCustomersWithBalance(db, { sort: activeSort, includeArchived: true }),
+          getSettings(db),
+        ]);
+        setCustomers(customerRows);
+        setCurrencySymbol(settings.currencySymbol);
+      } catch (error) {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -59,13 +88,25 @@ export function CustomerListScreen() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return customers;
-    return customers.filter(
-      (customer) =>
+    return customers.filter((customer) => {
+      if (customer.isArchived !== showArchived) return false;
+      if (balanceFilter === "receivable" && customer.balance <= 0) return false;
+      if (balanceFilter === "payable" && customer.balance >= 0) return false;
+      if (!needle) return true;
+      return (
         customer.name.toLowerCase().includes(needle) ||
-        (customer.phone ?? "").toLowerCase().includes(needle),
-    );
-  }, [customers, query]);
+        (customer.phone ?? "").toLowerCase().includes(needle)
+      );
+    });
+  }, [customers, query, showArchived, balanceFilter]);
+
+  const emptyMessage = showArchived
+    ? t("customers.emptyArchived")
+    : balanceFilter === "receivable"
+      ? t("customers.emptyFilterReceivable")
+      : balanceFilter === "payable"
+        ? t("customers.emptyFilterPayable")
+        : t("customers.empty");
 
   return (
     <View style={styles.container}>
@@ -91,11 +132,37 @@ export function CustomerListScreen() {
           active={sort === "balance"}
           onPress={() => setSort("balance")}
         />
+        <SortChip
+          label={t("customers.showArchived")}
+          active={showArchived}
+          onPress={() => setShowArchived((current) => !current)}
+        />
+        {balanceFilter ? (
+          <SortChip
+            label={`${
+              balanceFilter === "receivable"
+                ? t("customers.filterReceivable")
+                : t("customers.filterPayable")
+            } ×`}
+            accessibilityLabel={t("customers.clearFilter", {
+              filter:
+                balanceFilter === "receivable"
+                  ? t("customers.filterReceivable")
+                  : t("customers.filterPayable"),
+            })}
+            active
+            onPress={() => setBalanceFilter(null)}
+          />
+        ) : null}
       </View>
 
-      {!loading && filtered.length === 0 ? (
+      {loading ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t("customers.empty")}</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{emptyMessage}</Text>
         </View>
       ) : (
         <FlatList
@@ -108,7 +175,9 @@ export function CustomerListScreen() {
               customer={item}
               currencySymbol={currencySymbol}
               onPress={() =>
-                navigation.navigate("CustomerKhata", { customerId: item.id })
+                showArchived
+                  ? navigation.navigate("CustomerForm", { customerId: item.id })
+                  : navigation.navigate("CustomerKhata", { customerId: item.id })
               }
             />
           )}
@@ -118,6 +187,7 @@ export function CustomerListScreen() {
       <Pressable
         style={styles.fab}
         accessibilityLabel={t("customers.addCustomer")}
+        accessibilityRole="button"
         onPress={() => navigation.navigate("CustomerForm", undefined)}
       >
         <Ionicons name="add" size={28} color={colors.onPrimary} />
@@ -130,16 +200,21 @@ function SortChip({
   label,
   active,
   onPress,
+  accessibilityLabel,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
+  accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ selected: active }}
       style={[styles.sortChip, active && styles.sortChipActive]}
     >
       <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
@@ -168,9 +243,11 @@ function CustomerRow({
         : colors.neutralBalance;
 
   return (
-    <Pressable style={styles.row} onPress={onPress}>
+    <Pressable style={styles.row} onPress={onPress} accessibilityRole="button">
       <View style={styles.rowInfo}>
-        <Text style={styles.rowName}>{customer.name}</Text>
+        <Text style={styles.rowName} numberOfLines={1}>
+          {customer.name}
+        </Text>
         {customer.phone ? (
           <Text style={styles.rowSubtext}>{customer.phone}</Text>
         ) : null}
@@ -178,7 +255,7 @@ function CustomerRow({
           {new Date(customer.lastActivityAt).toLocaleDateString()}
         </Text>
       </View>
-      <Text style={[styles.rowBalance, { color: balanceColor }]}>
+      <Text style={[styles.rowBalance, { color: balanceColor }]} numberOfLines={1}>
         {formatMoney(customer.balance, currencySymbol)}
       </Text>
     </Pressable>
