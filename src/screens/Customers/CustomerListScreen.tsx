@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "../../components/Avatar";
 import { db } from "../../db/client";
@@ -40,6 +41,7 @@ export function CustomerListScreen() {
   const route = useRoute<Route>();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [customers, setCustomers] = useState<CustomerWithBalance[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
@@ -109,7 +111,9 @@ export function CustomerListScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t("customers.title")}</Text>
+      <Text style={[styles.title, { marginTop: insets.top + theme.spacing.md }]}>
+        {t("customers.title")}
+      </Text>
 
       <View style={styles.searchRow}>
         <Ionicons name="search" size={18} color={colors.textSecondary} />

@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { StatCard } from "../../components/StatCard";
 import { db } from "../../db/client";
@@ -37,6 +38,7 @@ export function ReportsScreen() {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [totals, setTotals] = useState({ totalReceivable: 0, totalPayable: 0 });
   const [exportData, setExportData] = useState<ExportData | null>(null);
@@ -136,7 +138,10 @@ export function ReportsScreen() {
   const isFiltering = isValidDate(dateFrom) || isValidDate(dateTo);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.md }]}
+    >
       <Text style={styles.title}>{t("reports.title")}</Text>
 
       <Pressable

@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "../../components/Avatar";
 import { StatCard } from "../../components/StatCard";
@@ -41,11 +42,13 @@ function todayDate(): string {
 }
 
 function todayLabel(): string {
-  return new Date().toLocaleDateString(undefined, {
+  const parts = new Intl.DateTimeFormat(undefined, {
     weekday: "long",
     day: "numeric",
     month: "long",
-  });
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("weekday")}, ${get("day")} ${get("month")}`;
 }
 
 export function HomeScreen() {
@@ -53,6 +56,7 @@ export function HomeScreen() {
   const navigation = useNavigation<Navigation>();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [totals, setTotals] = useState<DashboardTotals>({
     totalReceivable: 0,
@@ -105,6 +109,28 @@ export function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={[styles.headerBar, { paddingTop: insets.top + theme.spacing.md }]}>
+        <Avatar
+          label={getInitials(businessName ?? t("app.name"))}
+          size={48}
+          shape="square"
+          backgroundColor={colors.primary}
+          color={colors.accent}
+        />
+        <View style={styles.headerInfo}>
+          <Text style={styles.businessName} numberOfLines={1}>
+            {businessName ?? t("app.name")}
+          </Text>
+          <Text style={styles.dateLabel}>{todayLabel()}</Text>
+        </View>
+        <Ionicons
+          name="notifications-outline"
+          size={22}
+          color={colors.textSecondary}
+          accessibilityLabel={t("home.notifications")}
+        />
+      </View>
+
       <FlatList
         data={todaysEntries}
         keyExtractor={(item) => item.id}
@@ -113,28 +139,6 @@ export function HomeScreen() {
         renderItem={({ item }) => <ActivityRow entry={item} currencySymbol={currencySymbol} />}
         ListHeaderComponent={
           <View>
-            <View style={styles.headerRow}>
-              <Avatar
-                label={getInitials(businessName ?? t("app.name"))}
-                size={48}
-                shape="square"
-                backgroundColor={colors.primary}
-                color={colors.accent}
-              />
-              <View style={styles.headerInfo}>
-                <Text style={styles.businessName} numberOfLines={1}>
-                  {businessName ?? t("app.name")}
-                </Text>
-                <Text style={styles.dateLabel}>{todayLabel()}</Text>
-              </View>
-              <Ionicons
-                name="notifications-outline"
-                size={22}
-                color={colors.textSecondary}
-                accessibilityLabel={t("home.notifications")}
-              />
-            </View>
-
             <View style={styles.totalsRow}>
               <StatCard
                 label={t("home.totalReceivable")}
@@ -164,17 +168,6 @@ export function HomeScreen() {
               />
             </View>
 
-            <Pressable
-              style={styles.newCustomerButton}
-              accessibilityRole="button"
-              onPress={() =>
-                navigation.navigate("CustomersTab", { screen: "CustomerForm", params: undefined })
-              }
-            >
-              <Ionicons name="person-add" size={18} color={colors.onPrimary} />
-              <Text style={styles.newCustomerButtonText}>{t("home.newCustomer")}</Text>
-            </Pressable>
-
             <Text style={styles.sectionTitle}>{t("home.todaysActivity")}</Text>
 
             {todaysEntries.length === 0 ? (
@@ -183,6 +176,17 @@ export function HomeScreen() {
           </View>
         }
       />
+
+      <Pressable
+        style={styles.newCustomerButton}
+        accessibilityRole="button"
+        onPress={() =>
+          navigation.navigate("CustomersTab", { screen: "CustomerForm", params: undefined })
+        }
+      >
+        <Ionicons name="person-add" size={18} color={colors.onPrimary} />
+        <Text style={styles.newCustomerButtonText}>{t("home.newCustomer")}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -201,6 +205,7 @@ function ActivityRow({
   const color = isCashOut ? colors.owesMe : colors.iOwe;
   const softBackground = isCashOut ? colors.owesMeSoft : colors.iOweSoft;
   const icon = isCashOut ? "arrow-down-outline" : "arrow-up-outline";
+  const iconStyle = { transform: [{ rotate: "45deg" as const }] };
   const subtitle =
     entry.type === "bill"
       ? t("entry.activityNewBill")
@@ -211,7 +216,7 @@ function ActivityRow({
   return (
     <View style={styles.activityRow}>
       <View style={[styles.activityIcon, { backgroundColor: softBackground }]}>
-        <Ionicons name={icon} size={20} color={color} />
+        <Ionicons name={icon} size={20} color={color} style={iconStyle} />
       </View>
       <View style={styles.activityInfo}>
         <Text style={styles.activityName} numberOfLines={1}>
@@ -232,7 +237,7 @@ const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   center: {
     flex: 1,
@@ -245,11 +250,15 @@ const makeStyles = (colors: AppColors) =>
   },
   listContent: {
     padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xl * 2 + theme.spacing.lg,
   },
-  headerRow: {
+  headerBar: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: theme.spacing.lg,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    padding: theme.spacing.md,
   },
   headerInfo: {
     flex: 1,
@@ -268,17 +277,21 @@ const makeStyles = (colors: AppColors) =>
   totalsRow: {
     flexDirection: "row",
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   newCustomerButton: {
+    position: "absolute",
+    end: theme.spacing.lg,
+    bottom: theme.spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radius.pill,
     backgroundColor: colors.primary,
-    marginBottom: theme.spacing.lg,
+    elevation: 4,
   },
   newCustomerButtonText: {
     ...theme.typography.body,

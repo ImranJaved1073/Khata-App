@@ -30,7 +30,7 @@ export function StatCard({
     <View style={[styles.card, { borderTopColor: color }]}>
       <View style={styles.headerRow}>
         <Text style={styles.label}>{label}</Text>
-        <Ionicons name={icon} size={16} color={color} />
+        <Ionicons name={icon} size={16} color={color} style={styles.directionGlyph} />
       </View>
       <Text style={[styles.amount, { color }]} numberOfLines={1} adjustsFontSizeToFit>
         {amount}
@@ -84,5 +84,8 @@ const makeStyles = (colors: AppColors) =>
       ...theme.typography.caption,
       color: colors.textSecondary,
       marginTop: theme.spacing.xs,
+    },
+    directionGlyph: {
+      transform: [{ rotate: "45deg" }],
     },
   });

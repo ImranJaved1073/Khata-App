@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "../../components/Avatar";
 import { LanguageSelector } from "../../components/LanguageSelector";
@@ -43,6 +44,7 @@ export function SettingsScreen() {
   const { t } = useTranslation();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -121,7 +123,7 @@ export function SettingsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.md }]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.screenTitle}>{t("settings.title")}</Text>
