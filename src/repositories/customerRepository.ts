@@ -139,6 +139,36 @@ export async function updateCustomer(
   return { ...before, ...patch, updatedAt };
 }
 
+/** True if the customer has ever had an entry recorded (regardless of that entry's own soft-delete state). */
+export async function customerHasEntries(db: Database, id: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: entriesTable.id })
+    .from(entriesTable)
+    .where(eq(entriesTable.customerId, id))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Permanently removes a customer — the one exception to "deletes are soft" (data-model.md),
+ * allowed only when the customer has zero entries and so has no ledger history to protect.
+ * Callers must archive instead (`setCustomerArchived`) once a customer has any entries.
+ */
+export async function deleteCustomer(db: Database, id: string): Promise<void> {
+  const before = await getCustomer(db, id);
+  if (!before) {
+    throw new Error(`Customer not found: ${id}`);
+  }
+  if (await customerHasEntries(db, id)) {
+    throw new Error(
+      "Cannot permanently delete a customer with existing entries — archive instead.",
+    );
+  }
+
+  await db.delete(customers).where(eq(customers.id, id));
+  await logAudit(db, { entity: "customer", entityId: id, action: "delete" });
+}
+
 /** Soft-hide a customer without losing their entry history. */
 export async function setCustomerArchived(
   db: Database,

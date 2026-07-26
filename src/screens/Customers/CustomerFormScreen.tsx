@@ -18,12 +18,15 @@ import type { RouteProp } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
 import { Avatar } from "../../components/Avatar";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { db } from "../../db/client";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import { getInitials } from "../../lib/textFormat";
 import type { CustomersStackParamList } from "../../navigation/types";
 import {
   createCustomer,
+  customerHasEntries,
+  deleteCustomer,
   getCustomer,
   setCustomerArchived,
   updateCustomer,
@@ -57,6 +60,8 @@ export function CustomerFormScreen() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [hasEntries, setHasEntries] = useState(true);
   const [name, setName] = useState(route.params?.initialName ?? "");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -66,6 +71,12 @@ export function CustomerFormScreen() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isArchived, setIsArchived] = useState(false);
   const [currencySymbolLabel, setCurrencySymbolLabel] = useState("Rs");
+  const [focusedField, setFocusedField] = useState<
+    "name" | "phone" | "address" | "balance" | null
+  >(null);
+  const [pendingAction, setPendingAction] = useState<"archive" | "unarchive" | "delete" | null>(
+    null,
+  );
 
   const openingBalanceAmount = parseMoneyInput(openingBalanceInput);
   const openingBalanceColor =
@@ -89,8 +100,8 @@ export function CustomerFormScreen() {
 
   useEffect(() => {
     if (!customerId) return;
-    getCustomer(db, customerId)
-      .then((customer) => {
+    Promise.all([getCustomer(db, customerId), customerHasEntries(db, customerId)])
+      .then(([customer, hasAnyEntries]) => {
         if (!customer) return;
         setName(customer.name);
         setPhone(customer.phone ?? "");
@@ -98,6 +109,7 @@ export function CustomerFormScreen() {
         setOpeningBalanceInput(formatMoneyInput(customer.openingBalance));
         setPhotoUri(customer.photoUri);
         setIsArchived(customer.isArchived);
+        setHasEntries(hasAnyEntries);
       })
       .catch((error: Error) => {
         console.error(error);
@@ -167,37 +179,58 @@ export function CustomerFormScreen() {
     }
   }
 
-  function confirmArchiveToggle() {
-    if (!customerId) return;
-    const nextArchived = !isArchived;
-    const title = nextArchived
-      ? t("customerForm.archiveConfirmTitle")
-      : t("customerForm.unarchiveConfirmTitle");
-    const message = nextArchived
-      ? t("customerForm.archiveConfirmMessage")
-      : t("customerForm.unarchiveConfirmMessage");
-    const confirmLabel = nextArchived ? t("customerForm.archive") : t("customerForm.unarchive");
+  async function handleConfirmPendingAction() {
+    if (!customerId || !pendingAction) return;
 
-    Alert.alert(title, message, [
-      { text: t("customerForm.cancel"), style: "cancel" },
-      {
-        text: confirmLabel,
-        style: nextArchived ? "destructive" : "default",
-        onPress: async () => {
-          setArchiving(true);
-          try {
-            await setCustomerArchived(db, customerId, nextArchived);
-            navigation.goBack();
-          } catch (error) {
-            console.error(error);
-            Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
-          } finally {
-            setArchiving(false);
-          }
-        },
-      },
-    ]);
+    if (pendingAction === "delete") {
+      setDeleting(true);
+      try {
+        await deleteCustomer(db, customerId);
+        setPendingAction(null);
+        navigation.goBack();
+      } catch (error) {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      } finally {
+        setDeleting(false);
+      }
+      return;
+    }
+
+    const nextArchived = pendingAction === "archive";
+    setArchiving(true);
+    try {
+      await setCustomerArchived(db, customerId, nextArchived);
+      setPendingAction(null);
+      navigation.goBack();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setArchiving(false);
+    }
   }
+
+  const pendingDialogContent =
+    pendingAction === "delete"
+      ? {
+          title: t("customerForm.deleteConfirmTitle"),
+          message: t("customerForm.deleteConfirmMessage"),
+          confirmLabel: t("customerForm.delete"),
+        }
+      : pendingAction === "archive"
+        ? {
+            title: t("customerForm.archiveConfirmTitle"),
+            message: t("customerForm.archiveConfirmMessage"),
+            confirmLabel: t("customerForm.archive"),
+          }
+        : pendingAction === "unarchive"
+          ? {
+              title: t("customerForm.unarchiveConfirmTitle"),
+              message: t("customerForm.unarchiveConfirmMessage"),
+              confirmLabel: t("customerForm.unarchive"),
+            }
+          : null;
 
   if (loading) {
     return (
@@ -222,13 +255,17 @@ export function CustomerFormScreen() {
         <View>
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={styles.photo} />
-          ) : (
+          ) : name.trim().length > 0 ? (
             <Avatar
-              label={getInitials(name || "?")}
+              label={getInitials(name)}
               size={112}
               backgroundColor={colors.primarySoft}
               color={colors.primary}
             />
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Ionicons name="person" size={56} color={colors.primaryMuted} />
+            </View>
           )}
           <View style={styles.photoBadge}>
             <Ionicons name="camera" size={16} color={colors.onPrimary} />
@@ -243,14 +280,16 @@ export function CustomerFormScreen() {
             setName(text);
             if (nameError) setNameError(null);
           }}
-          style={styles.input}
+          onFocus={() => setFocusedField("name")}
+          onBlur={() => setFocusedField(null)}
+          style={[styles.input, focusedField === "name" && styles.inputFocused]}
           placeholder={t("customerForm.name")}
           placeholderTextColor={colors.textSecondary}
         />
         {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
       </Field>
 
-      <Field label={t("customerForm.phone")}>
+      <Field label={t("customerForm.phone")} optional>
         <View style={styles.inputRow}>
           <TextInput
             value={phone}
@@ -258,7 +297,13 @@ export function CustomerFormScreen() {
               setPhone(text);
               if (phoneError) setPhoneError(null);
             }}
-            style={[styles.input, styles.inputRowField]}
+            onFocus={() => setFocusedField("phone")}
+            onBlur={() => setFocusedField(null)}
+            style={[
+              styles.input,
+              styles.inputRowField,
+              focusedField === "phone" && styles.inputFocused,
+            ]}
             placeholder={t("customerForm.phone")}
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
@@ -275,11 +320,17 @@ export function CustomerFormScreen() {
         {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
       </Field>
 
-      <Field label={t("customerForm.address")}>
+      <Field label={t("customerForm.address")} optional>
         <TextInput
           value={address}
           onChangeText={setAddress}
-          style={[styles.input, styles.multilineInput]}
+          onFocus={() => setFocusedField("address")}
+          onBlur={() => setFocusedField(null)}
+          style={[
+            styles.input,
+            styles.multilineInput,
+            focusedField === "address" && styles.inputFocused,
+          ]}
           placeholder={t("customerForm.address")}
           placeholderTextColor={colors.textSecondary}
           multiline
@@ -287,11 +338,18 @@ export function CustomerFormScreen() {
       </Field>
 
       <Field label={t("customerForm.openingBalance")}>
-        <View style={styles.balanceInputBox}>
+        <View
+          style={[
+            styles.balanceInputBox,
+            focusedField === "balance" && styles.inputFocused,
+          ]}
+        >
           <Text style={styles.balancePrefix}>{currencySymbolLabel}</Text>
           <TextInput
             value={openingBalanceInput}
             onChangeText={setOpeningBalanceInput}
+            onFocus={() => setFocusedField("balance")}
+            onBlur={() => setFocusedField(null)}
             style={[styles.balanceInput, { color: openingBalanceColor }]}
             placeholder="0.00"
             placeholderTextColor={colors.textSecondary}
@@ -300,8 +358,8 @@ export function CustomerFormScreen() {
           {openingBalanceAmount !== 0 ? (
             <Text style={styles.balanceSuffix}>
               {openingBalanceAmount > 0
-                ? t("khata.theyOweYou")
-                : t("khata.youOweThem")}
+                ? t("customerForm.owesYouSuffix")
+                : t("customerForm.youOweSuffix")}
             </Text>
           ) : null}
         </View>
@@ -321,7 +379,7 @@ export function CustomerFormScreen() {
       <Pressable
         style={styles.saveButton}
         onPress={handleSave}
-        disabled={saving || archiving}
+        disabled={saving || archiving || deleting}
         accessibilityRole="button"
         accessibilityLabel={t("customerForm.save")}
       >
@@ -332,26 +390,45 @@ export function CustomerFormScreen() {
         )}
       </Pressable>
 
-      {isEdit ? (
+      {isEdit && (isArchived || hasEntries) ? (
         <Pressable
           style={styles.archiveButton}
-          onPress={confirmArchiveToggle}
+          onPress={() => setPendingAction(isArchived ? "unarchive" : "archive")}
           disabled={saving || archiving}
           accessibilityRole="button"
           accessibilityLabel={isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
         >
-          {archiving ? (
-            <ActivityIndicator color={colors.danger} />
-          ) : (
-            <>
-              <Ionicons name="archive-outline" size={18} color={colors.danger} />
-              <Text style={styles.archiveButtonText}>
-                {isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
-              </Text>
-            </>
-          )}
+          <Ionicons name="archive-outline" size={18} color={colors.danger} />
+          <Text style={styles.archiveButtonText}>
+            {isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
+          </Text>
         </Pressable>
       ) : null}
+
+      {isEdit && !isArchived && !hasEntries ? (
+        <Pressable
+          style={styles.archiveButton}
+          onPress={() => setPendingAction("delete")}
+          disabled={saving || deleting}
+          accessibilityRole="button"
+          accessibilityLabel={t("customerForm.delete")}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          <Text style={styles.archiveButtonText}>{t("customerForm.delete")}</Text>
+        </Pressable>
+      ) : null}
+
+      <ConfirmDialog
+        visible={pendingAction !== null}
+        title={pendingDialogContent?.title ?? ""}
+        message={pendingDialogContent?.message ?? ""}
+        confirmLabel={pendingDialogContent?.confirmLabel ?? ""}
+        cancelLabel={t("customerForm.cancel")}
+        destructive={pendingAction !== "unarchive"}
+        loading={archiving || deleting}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={handleConfirmPendingAction}
+      />
     </ScrollView>
   );
 }
@@ -359,19 +436,25 @@ export function CustomerFormScreen() {
 function Field({
   label,
   required,
+  optional,
   children,
 }: {
   label: string;
   required?: boolean;
+  optional?: boolean;
   children: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>
         {label}
-        {required ? " *" : ""}
+        {required ? <Text style={styles.requiredMark}> *</Text> : null}
+        {optional ? (
+          <Text style={styles.optionalMark}> ({t("customerForm.optional")})</Text>
+        ) : null}
       </Text>
       {children}
     </View>
@@ -402,6 +485,14 @@ const makeStyles = (colors: AppColors) =>
     height: 112,
     borderRadius: theme.radius.pill,
   },
+  photoPlaceholder: {
+    width: 112,
+    height: 112,
+    borderRadius: theme.radius.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   photoBadge: {
     position: "absolute",
     end: -2,
@@ -420,8 +511,14 @@ const makeStyles = (colors: AppColors) =>
   },
   fieldLabel: {
     ...theme.typography.body,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
+  },
+  requiredMark: {
+    color: colors.danger,
+  },
+  optionalMark: {
+    color: colors.textSecondary,
   },
   input: {
     ...theme.typography.body,
@@ -432,6 +529,9 @@ const makeStyles = (colors: AppColors) =>
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
   },
   multilineInput: {
     minHeight: 80,
@@ -485,8 +585,8 @@ const makeStyles = (colors: AppColors) =>
   },
   saveButton: {
     marginTop: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.lg,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
@@ -502,8 +602,8 @@ const makeStyles = (colors: AppColors) =>
     justifyContent: "center",
     gap: theme.spacing.xs,
     marginTop: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: colors.danger,
   },

@@ -16,7 +16,10 @@ import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/nativ
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { ActionSheetOption } from "../../components/ActionSheet";
+import { ActionSheet } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { db } from "../../db/client";
 import { formatRelativeDate } from "../../lib/dateFormat";
 import { formatMoney } from "../../lib/money";
@@ -26,7 +29,12 @@ import type {
   CustomerSort,
   CustomerWithBalance,
 } from "../../repositories/customerRepository";
-import { listCustomersWithBalance } from "../../repositories/customerRepository";
+import {
+  customerHasEntries,
+  deleteCustomer,
+  listCustomersWithBalance,
+  setCustomerArchived,
+} from "../../repositories/customerRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
@@ -52,6 +60,14 @@ export function CustomerListScreen() {
     route.params?.balanceFilter ?? null,
   );
   const [loading, setLoading] = useState(true);
+  const [contextMenuCustomer, setContextMenuCustomer] = useState<CustomerWithBalance | null>(
+    null,
+  );
+  const [deleteDialog, setDeleteDialog] = useState<{
+    customer: CustomerWithBalance;
+    hasEntries: boolean;
+  } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // navigate() to an already-mounted CustomerList (e.g. tapping a different Home stat) updates
   // route.params without remounting the screen, so state seeded from useState's initializer alone
@@ -90,6 +106,56 @@ export function CustomerListScreen() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [load, sort]),
   );
+
+  function requestDeleteCustomer(customer: CustomerWithBalance) {
+    customerHasEntries(db, customer.id)
+      .then((hasEntries) => setDeleteDialog({ customer, hasEntries }))
+      .catch((error) => {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      });
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteDialog) return;
+    setDeleteLoading(true);
+    try {
+      if (deleteDialog.hasEntries) {
+        await setCustomerArchived(db, deleteDialog.customer.id, true);
+      } else {
+        await deleteCustomer(db, deleteDialog.customer.id);
+      }
+      setDeleteDialog(null);
+      load(sort);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  const contextMenuOptions: ActionSheetOption[] = contextMenuCustomer
+    ? [
+        {
+          key: "edit",
+          icon: "create-outline",
+          iconBackgroundColor: colors.primarySoft,
+          iconColor: colors.primary,
+          label: t("customers.editCustomer"),
+          onPress: () =>
+            navigation.navigate("CustomerForm", { customerId: contextMenuCustomer.id }),
+        },
+        {
+          key: "delete",
+          icon: "trash-outline",
+          iconBackgroundColor: colors.owesMeSoft,
+          iconColor: colors.danger,
+          label: t("customerForm.delete"),
+          onPress: () => requestDeleteCustomer(contextMenuCustomer),
+        },
+      ]
+    : [];
 
   const trimmedQuery = query.trim();
   const filtered = useMemo(() => {
@@ -154,11 +220,12 @@ export function CustomerListScreen() {
         />
         {balanceFilter ? (
           <SortChip
-            label={`${
+            label={
               balanceFilter === "receivable"
                 ? t("customers.filterReceivable")
                 : t("customers.filterPayable")
-            } ×`}
+            }
+            dismissible
             accessibilityLabel={t("customers.clearFilter", {
               filter:
                 balanceFilter === "receivable"
@@ -219,6 +286,7 @@ export function CustomerListScreen() {
                   ? navigation.navigate("CustomerForm", { customerId: item.id })
                   : navigation.navigate("CustomerKhata", { customerId: item.id })
               }
+              onLongPress={() => setContextMenuCustomer(item)}
             />
           )}
         />
@@ -232,6 +300,36 @@ export function CustomerListScreen() {
       >
         <Ionicons name="add" size={28} color={colors.onPrimary} />
       </Pressable>
+
+      <ActionSheet
+        visible={contextMenuCustomer !== null}
+        onClose={() => setContextMenuCustomer(null)}
+        title={contextMenuCustomer?.name ?? ""}
+        options={contextMenuOptions}
+        cancelLabel={t("customerForm.cancel")}
+      />
+
+      <ConfirmDialog
+        visible={deleteDialog !== null}
+        title={
+          deleteDialog?.hasEntries
+            ? t("customerForm.archiveConfirmTitle")
+            : t("customerForm.deleteConfirmTitle")
+        }
+        message={
+          deleteDialog?.hasEntries
+            ? t("customers.deleteHasEntriesMessage")
+            : t("customerForm.deleteConfirmMessage")
+        }
+        confirmLabel={
+          deleteDialog?.hasEntries ? t("customerForm.archive") : t("customerForm.delete")
+        }
+        cancelLabel={t("customerForm.cancel")}
+        destructive
+        loading={deleteLoading}
+        onCancel={() => setDeleteDialog(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </View>
   );
 }
@@ -256,7 +354,7 @@ function EmptyState({
   return (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconBox}>
-        <Ionicons name={icon} size={40} color={colors.primary} />
+        <Ionicons name={icon} size={40} color={colors.primaryMuted} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyText}>{description}</Text>
@@ -289,11 +387,13 @@ function SortChip({
   active,
   onPress,
   accessibilityLabel,
+  dismissible,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   accessibilityLabel?: string;
+  dismissible?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -308,6 +408,9 @@ function SortChip({
       <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
         {label}
       </Text>
+      {dismissible ? (
+        <Ionicons name="close" size={16} color={colors.onPrimary} />
+      ) : null}
     </Pressable>
   );
 }
@@ -316,10 +419,12 @@ function CustomerRow({
   customer,
   currencySymbol,
   onPress,
+  onLongPress,
 }: {
   customer: CustomerWithBalance;
   currencySymbol: string;
   onPress: () => void;
+  onLongPress: () => void;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -341,7 +446,12 @@ function CustomerRow({
           : relative.value;
 
   return (
-    <Pressable style={styles.row} onPress={onPress} accessibilityRole="button">
+    <Pressable
+      style={styles.row}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityRole="button"
+    >
       <Avatar
         label={getInitials(customer.name)}
         size={48}
@@ -381,7 +491,7 @@ const makeStyles = (colors: AppColors) =>
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
     gap: theme.spacing.sm,
@@ -402,6 +512,9 @@ const makeStyles = (colors: AppColors) =>
     borderBottomColor: colors.border,
   },
   sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: theme.radius.pill,
@@ -424,8 +537,7 @@ const makeStyles = (colors: AppColors) =>
     flex: 1,
   },
   listContent: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   row: {
     flexDirection: "row",
@@ -483,9 +595,9 @@ const makeStyles = (colors: AppColors) =>
     alignItems: "center",
     gap: theme.spacing.xs,
     backgroundColor: colors.primary,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
     marginTop: theme.spacing.lg,
   },
   emptyCtaOutline: {
@@ -504,10 +616,14 @@ const makeStyles = (colors: AppColors) =>
     bottom: theme.spacing.lg,
     width: 56,
     height: 56,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.lg,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
 });

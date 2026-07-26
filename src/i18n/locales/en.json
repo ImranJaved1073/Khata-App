@@ -34,7 +34,7 @@
   },
   "customers": {
     "title": "Customers",
-    "searchPlaceholder": "Search by name or phone",
+    "searchPlaceholder": "Search name or phone",
     "addCustomer": "Add Customer",
     "empty": "No customers yet. Tap + to add your first customer.",
     "emptyArchived": "No archived customers.",
@@ -51,7 +51,9 @@
     "addFirstCustomer": "Add first customer",
     "noResultsTitle": "No matches for \"{{query}}\"",
     "noResultsDescription": "Check the spelling, or add them as a new customer.",
-    "addNamed": "Add \"{{query}}\""
+    "addNamed": "Add \"{{query}}\"",
+    "editCustomer": "Edit customer",
+    "deleteHasEntriesMessage": "This customer already has entries, so they'll be archived instead of deleted — their history is kept."
   },
   "customerForm": {
     "titleNew": "Add Customer",
@@ -65,15 +67,21 @@
     "phoneInvalid": "Enter a valid phone number, or leave it blank",
     "save": "Save",
     "cancel": "Cancel",
-    "archive": "Archive",
+    "archive": "Archive customer",
     "archiveConfirmTitle": "Archive this customer?",
     "archiveConfirmMessage": "They'll be hidden from your customer list, but their history is kept.",
-    "unarchive": "Unarchive",
+    "unarchive": "Unarchive customer",
     "unarchiveConfirmTitle": "Unarchive this customer?",
     "unarchiveConfirmMessage": "They'll reappear in your main customer list.",
+    "delete": "Delete customer",
+    "deleteConfirmTitle": "Delete this customer?",
+    "deleteConfirmMessage": "They have no entries yet, so this removes them completely — this can't be undone.",
     "balancePreview": "Preview: {{amount}} {{direction}}",
     "receivable": "receivable",
-    "payable": "payable"
+    "payable": "payable",
+    "optional": "optional",
+    "owesYouSuffix": "owes you",
+    "youOweSuffix": "you owe"
   },
   "khata": {
     "newEntry": "New Entry",

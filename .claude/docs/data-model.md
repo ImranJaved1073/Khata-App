@@ -16,6 +16,8 @@ Schema changes go through Drizzle: edit `src/db/schema.ts`, then run `npx drizzl
 | isArchived | bool | soft-hide without deleting history |
 | createdAt / updatedAt | timestamp | |
 
+A customer with **zero entries** is the one exception to "customers are never hard-deleted" (see [`architecture.md`](architecture.md)) — `deleteCustomer()` (`customerRepository.ts`) permanently removes it, gated by `customerHasEntries()`. The moment a customer has any entry, only `setCustomerArchived()` applies.
+
 ## entries
 One movement of money for a customer, at a point in time.
 | field | type | notes |

@@ -34,7 +34,7 @@
   },
   "customers": {
     "title": "گاہک",
-    "searchPlaceholder": "نام یا فون نمبر سے تلاش کریں",
+    "searchPlaceholder": "نام یا فون نمبر تلاش کریں",
     "addCustomer": "گاہک شامل کریں",
     "empty": "ابھی تک کوئی گاہک نہیں۔ پہلا گاہک شامل کرنے کے لیے + دبائیں۔",
     "emptyArchived": "کوئی آرکائیو شدہ گاہک نہیں۔",
@@ -51,7 +51,9 @@
     "addFirstCustomer": "پہلا گاہک شامل کریں",
     "noResultsTitle": "\"{{query}}\" کے لیے کوئی نتیجہ نہیں",
     "noResultsDescription": "ہجے چیک کریں، یا انہیں نئے گاہک کے طور پر شامل کریں۔",
-    "addNamed": "\"{{query}}\" شامل کریں"
+    "addNamed": "\"{{query}}\" شامل کریں",
+    "editCustomer": "گاہک میں ترمیم کریں",
+    "deleteHasEntriesMessage": "اس گاہک کی پہلے سے انٹریاں موجود ہیں، اس لیے یہ حذف ہونے کے بجائے آرکائیو ہو جائے گا — اس کی تاریخ محفوظ رہے گی۔"
   },
   "customerForm": {
     "titleNew": "گاہک شامل کریں",
@@ -65,15 +67,21 @@
     "phoneInvalid": "درست فون نمبر درج کریں، یا خالی چھوڑ دیں",
     "save": "محفوظ کریں",
     "cancel": "منسوخ کریں",
-    "archive": "آرکائیو کریں",
+    "archive": "گاہک آرکائیو کریں",
     "archiveConfirmTitle": "کیا اس گاہک کو آرکائیو کرنا ہے؟",
     "archiveConfirmMessage": "یہ آپ کی گاہک لسٹ سے چھپ جائے گا، لیکن اس کی تاریخ محفوظ رہے گی۔",
-    "unarchive": "آرکائیو سے واپس لائیں",
+    "unarchive": "گاہک کو آرکائیو سے واپس لائیں",
     "unarchiveConfirmTitle": "کیا اس گاہک کو واپس لانا ہے؟",
     "unarchiveConfirmMessage": "یہ دوبارہ آپ کی مرکزی گاہک لسٹ میں نظر آئے گا۔",
+    "delete": "گاہک حذف کریں",
+    "deleteConfirmTitle": "کیا اس گاہک کو حذف کرنا ہے؟",
+    "deleteConfirmMessage": "ابھی تک اس کی کوئی انٹری نہیں، اس لیے یہ مکمل طور پر حذف ہو جائے گا — اسے واپس نہیں لیا جا سکتا۔",
     "balancePreview": "پیش منظر: {{amount}} {{direction}}",
     "receivable": "وصولی",
-    "payable": "ادائیگی"
+    "payable": "ادائیگی",
+    "optional": "اختیاری",
+    "owesYouSuffix": "آپ کا مقروض ہے",
+    "youOweSuffix": "آپ مقروض ہیں"
   },
   "khata": {
     "newEntry": "نئی انٹری",
