@@ -14,6 +14,7 @@ Source of truth for product scope is [`docs/Khata_app-Guide.pdf`](../../docs/Kha
 | Theming | `Appearance` API + `src/theme/ThemeContext.tsx` (`ThemeProvider`/`useTheme`), light/dark palettes in `src/theme/colors.ts`, mode (`system`\|`light`\|`dark`) persisted in `settings.themeMode` (Phase 6, built) |
 | PDF / share | `expo-print` (bill/statement → PDF), `expo-sharing` + WhatsApp/SMS deep links (Phase 5, built — `src/lib/documentFormat.ts` builds the HTML/text, `src/lib/share.ts` does the print/deep-link/share plumbing) |
 | Export | `xlsx` for Excel, hand-rolled CSV writer, saved via `expo-file-system/legacy` then shared (Phase 5, built — `src/lib/exportData.ts` + `src/lib/exportFile.ts`) |
+| App icon / splash | `expo-splash-screen` config plugin (Phase 7 — `app.json`'s `plugins` array: `image`/`imageWidth`/`resizeMode`/`backgroundColor`); `assets/icon.png`, `favicon.png`, `android-icon-foreground.png`, `android-icon-monochrome.png`, `splash-icon.png` are all generated (not hand-drawn) by rendering an HTML/CSS composition of the Ionicons `book` glyph through headless Chrome/Edge — see `.claude/docs/skills.md` |
 
 ## Why these choices
 

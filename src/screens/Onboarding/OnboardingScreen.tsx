@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LanguageSelector } from "../../components/LanguageSelector";
 import { db } from "../../db/client";
@@ -37,6 +38,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const { t } = useTranslation();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState(0);
   const [businessName, setBusinessName] = useState("");
@@ -97,25 +99,27 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     setPinError(null);
   }
 
-  async function finish() {
-    if ((pin.length > 0 || confirmPin.length > 0) && !pinConfirmed) {
+  async function finish(options?: { skipPin?: boolean }) {
+    const skipPin = options?.skipPin ?? false;
+    if (!skipPin && (pin.length > 0 || confirmPin.length > 0) && !pinConfirmed) {
       setPinError(t("onboarding.pinMismatch"));
       return;
     }
     setPinError(null);
     setSaving(true);
     try {
+      const setsPin = !skipPin && pinConfirmed;
       await updateSettings(db, {
         businessName: businessName.trim() || null,
         currencySymbol: currencySymbol.trim() || "Rs",
         language,
         themeMode: mode,
-        biometricEnabled: pinConfirmed && biometricEnabled,
+        biometricEnabled: setsPin && biometricEnabled,
       });
 
       const rtlChanged = await setAppLanguage(language);
 
-      if (pinConfirmed) {
+      if (setsPin) {
         await setPin(pin);
       }
       await setOnboarded();
@@ -143,10 +147,18 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     setStep((current) => Math.max(current - 1, 0));
   }
 
+  function handleSkip() {
+    if (step === STEP_COUNT - 1) {
+      finish({ skipPin: true });
+      return;
+    }
+    setStep(STEP_COUNT - 1);
+  }
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.lg }]}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.topRow}>
@@ -164,7 +176,8 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         </View>
         {step > 0 ? (
           <Pressable
-            onPress={() => setStep(STEP_COUNT - 1)}
+            onPress={handleSkip}
+            disabled={saving}
             accessibilityRole="button"
             accessibilityLabel={t("onboarding.skip")}
           >
@@ -175,6 +188,9 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
 
       {step === 0 ? (
         <View>
+          <View style={styles.iconBox}>
+            <Ionicons name="book" size={32} color={colors.accent} />
+          </View>
           <Text style={styles.title}>{t("onboarding.welcomeTitle")}</Text>
           <Text style={styles.subtitle}>{t("onboarding.welcomeSubtitle")}</Text>
 
@@ -317,6 +333,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
 
           {biometricAvailable && pinConfirmed ? (
             <View style={styles.switchRow}>
+              <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
               <Text style={styles.switchLabel}>{t("onboarding.enableBiometric")}</Text>
               <Switch
                 value={biometricEnabled}
@@ -355,7 +372,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         ) : (
           <Pressable
             style={[styles.button, styles.nextButton, styles.nextButtonFlex]}
-            onPress={finish}
+            onPress={() => finish()}
             disabled={saving}
             accessibilityRole="button"
             accessibilityLabel={t("onboarding.finish")}
@@ -490,6 +507,15 @@ const makeStyles = (colors: AppColors) =>
       ...theme.typography.body,
       color: colors.textSecondary,
     },
+    iconBox: {
+      width: 64,
+      height: 64,
+      borderRadius: theme.radius.lg,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: theme.spacing.lg,
+    },
     title: {
       ...theme.typography.title,
       color: colors.textPrimary,
@@ -526,8 +552,7 @@ const makeStyles = (colors: AppColors) =>
       flex: 1,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -665,14 +690,16 @@ const makeStyles = (colors: AppColors) =>
     switchRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.xl,
     },
     switchLabel: {
       ...theme.typography.body,
       color: colors.textPrimary,
       flex: 1,
-      marginEnd: theme.spacing.sm,
     },
     actions: {
       flexDirection: "row",

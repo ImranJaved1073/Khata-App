@@ -67,7 +67,7 @@ export const darkColors: { [K in keyof typeof lightColors]: string } = {
   danger: "#E5705F",
   success: "#4CAF7D",
   onPrimary: "#FFFFFF",
-  primarySoft: "#3A4A63",
+  primarySoft: "#242B38",
   owesMeSoft: "#3C2C2E",
   iOweSoft: "#233633",
 };

@@ -171,7 +171,12 @@ export function HomeScreen() {
             <Text style={styles.sectionTitle}>{t("home.todaysActivity")}</Text>
 
             {todaysEntries.length === 0 ? (
-              <Text style={styles.emptyText}>{t("home.noActivityToday")}</Text>
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIconBox}>
+                  <Ionicons name="book" size={40} color={colors.primaryMuted} />
+                </View>
+                <Text style={styles.emptyTitle}>{t("home.noActivityToday")}</Text>
+              </View>
             ) : null}
           </View>
         }
@@ -303,9 +308,23 @@ const makeStyles = (colors: AppColors) =>
     color: colors.textPrimary,
     marginBottom: theme.spacing.sm,
   },
-  emptyText: {
-    ...theme.typography.body,
-    color: colors.textSecondary,
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: theme.spacing.xl * 2,
+  },
+  emptyIconBox: {
+    width: 96,
+    height: 96,
+    borderRadius: theme.radius.lg,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.md,
+  },
+  emptyTitle: {
+    ...theme.typography.heading,
+    color: colors.textPrimary,
+    textAlign: "center",
   },
   activityRow: {
     flexDirection: "row",

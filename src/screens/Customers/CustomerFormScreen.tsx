@@ -65,7 +65,7 @@ export function CustomerFormScreen() {
   const [name, setName] = useState(route.params?.initialName ?? "");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [openingBalanceInput, setOpeningBalanceInput] = useState("0.00");
+  const [openingBalanceInput, setOpeningBalanceInput] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -346,7 +346,6 @@ export function CustomerFormScreen() {
         >
           <Text style={styles.balancePrefix}>{currencySymbolLabel}</Text>
           <TextInput
-            value={openingBalanceInput}
             onChangeText={setOpeningBalanceInput}
             onFocus={() => setFocusedField("balance")}
             onBlur={() => setFocusedField(null)}
