@@ -134,10 +134,20 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      if (!skipPin) clearPinEntry();
     } finally {
       setSaving(false);
     }
   }
+
+  // A matched PIN finishes onboarding immediately, the same way a correct PIN
+  // auto-unlocks LockScreen — step 3 has no explicit confirm/finish button.
+  useEffect(() => {
+    if (pinConfirmed && !saving) {
+      finish();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinConfirmed]);
 
   function goNext() {
     setStep((current) => Math.min(current + 1, STEP_COUNT - 1));
@@ -155,13 +165,12 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     setStep(STEP_COUNT - 1);
   }
 
+  const isLastStep = step === STEP_COUNT - 1;
+  const showBiometricRow = isLastStep && biometricAvailable;
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.lg }]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.topRow}>
+    <View style={styles.screen}>
+      <View style={[styles.topRow, { paddingTop: insets.top + theme.spacing.lg }]}>
         <View style={styles.progressRow}>
           {Array.from({ length: STEP_COUNT }).map((_, index) => (
             <View
@@ -186,6 +195,11 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         ) : null}
       </View>
 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
       {step === 0 ? (
         <View>
           <View style={styles.iconBox}>
@@ -288,13 +302,9 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </View>
           {pinError ? <Text style={styles.errorText}>{pinError}</Text> : null}
           {pinConfirmed ? (
-            <Pressable
-              onPress={clearPinEntry}
-              accessibilityRole="button"
-              accessibilityLabel={t("settings.changePin")}
-            >
-              <Text style={styles.changePinText}>{t("settings.changePin")}</Text>
-            </Pressable>
+            <View style={styles.pinConfirmedRow}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
           ) : (
             <View style={styles.keypad}>
               {PIN_KEYPAD_ROWS.map((row, rowIndex) => (
@@ -330,62 +340,51 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
               ))}
             </View>
           )}
-
-          {biometricAvailable && pinConfirmed ? (
-            <View style={styles.switchRow}>
-              <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
-              <Text style={styles.switchLabel}>{t("onboarding.enableBiometric")}</Text>
-              <Switch
-                value={biometricEnabled}
-                onValueChange={setBiometricEnabled}
-                trackColor={{ true: colors.primary, false: colors.border }}
-                thumbColor={colors.onPrimary}
-                accessibilityLabel={t("onboarding.enableBiometric")}
-              />
-            </View>
-          ) : null}
         </View>
       ) : null}
+      </ScrollView>
 
-      <View style={styles.actions}>
-        {step > 0 ? (
-          <Pressable
-            style={[styles.button, styles.backButton]}
-            onPress={goBack}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.back")}
-          >
-            <Ionicons name="arrow-back" size={18} color={colors.textPrimary} />
-          </Pressable>
-        ) : null}
-        {step < STEP_COUNT - 1 ? (
-          <Pressable
-            style={[styles.button, styles.nextButton, styles.nextButtonFlex]}
-            onPress={goNext}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.next")}
-          >
-            <Text style={styles.nextButtonText}>{t("onboarding.next")}</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
-          </Pressable>
-        ) : (
-          <Pressable
-            style={[styles.button, styles.nextButton, styles.nextButtonFlex]}
-            onPress={() => finish()}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.finish")}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text style={styles.nextButtonText}>{t("onboarding.finish")}</Text>
-            )}
-          </Pressable>
-        )}
-      </View>
-    </ScrollView>
+      {!isLastStep ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + theme.spacing.md }]}>
+          <View style={styles.actions}>
+            {step > 0 ? (
+              <Pressable
+                style={[styles.button, styles.backButton]}
+                onPress={goBack}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel={t("onboarding.back")}
+              >
+                <Ionicons name="arrow-back" size={18} color={colors.textPrimary} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.button, styles.nextButton, styles.nextButtonFlex]}
+              onPress={goNext}
+              accessibilityRole="button"
+              accessibilityLabel={t("onboarding.next")}
+            >
+              <Text style={styles.nextButtonText}>{t("onboarding.next")}</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
+            </Pressable>
+          </View>
+        </View>
+      ) : showBiometricRow ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + theme.spacing.md }]}>
+          <View style={styles.switchRow}>
+            <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
+            <Text style={styles.switchLabel}>{t("onboarding.enableBiometric")}</Text>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={setBiometricEnabled}
+              trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor={colors.onPrimary}
+              accessibilityLabel={t("onboarding.enableBiometric")}
+            />
+          </View>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -472,18 +471,27 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
-    container: {
+    screen: {
       flex: 1,
       backgroundColor: colors.background,
     },
-    content: {
-      padding: theme.spacing.lg,
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.lg,
       flexGrow: 1,
+    },
+    bottomBar: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
     },
     topRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+      paddingHorizontal: theme.spacing.lg,
       marginBottom: theme.spacing.xl,
     },
     progressRow: {
@@ -660,11 +668,10 @@ const makeStyles = (colors: AppColors) =>
       color: colors.danger,
       marginBottom: theme.spacing.sm,
     },
-    changePinText: {
-      ...theme.typography.body,
-      color: colors.primary,
-      fontWeight: "600",
-      marginBottom: theme.spacing.md,
+    pinConfirmedRow: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.xl,
     },
     keypad: {
       gap: theme.spacing.sm,
@@ -694,7 +701,6 @@ const makeStyles = (colors: AppColors) =>
       backgroundColor: colors.surface,
       borderRadius: theme.radius.lg,
       padding: theme.spacing.md,
-      marginTop: theme.spacing.xl,
     },
     switchLabel: {
       ...theme.typography.body,
@@ -704,7 +710,6 @@ const makeStyles = (colors: AppColors) =>
     actions: {
       flexDirection: "row",
       gap: theme.spacing.sm,
-      marginTop: theme.spacing.xl,
     },
     button: {
       paddingVertical: theme.spacing.sm,

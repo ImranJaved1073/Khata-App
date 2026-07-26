@@ -15,6 +15,13 @@
       "when": 1784930439558,
       "tag": "0001_nosy_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785096888200,
+      "tag": "0002_huge_komodo",
+      "breakpoints": true
     }
   ]
 }

@@ -123,7 +123,7 @@ export async function createEntry(
 
   await logAudit(db, { entity: "entry", entityId: entryId, action: "create" });
   for (const li of boundLineItems) {
-    await logAudit(db, { entity: "line_item", entityId: li.id, action: "create" });
+    await logAudit(db, { entity: "line_item", entityId: li.id, entryId, action: "create" });
   }
 
   return { ...entryRow, lineItems: boundLineItems };
@@ -238,16 +238,32 @@ export async function updateEntry(
   }
 
   for (const row of removedRows) {
-    await logAudit(db, { entity: "line_item", entityId: row.id, action: "delete" });
+    await logAudit(db, {
+      entity: "line_item",
+      entityId: row.id,
+      entryId,
+      action: "delete",
+      diff: {
+        itemName: { old: row.itemName, new: null },
+        quantity: { old: row.quantity, new: null },
+        amount: { old: row.amount, new: null },
+      },
+    });
   }
   for (const row of nextLineItemRows) {
     const existing = before.lineItems.find((li) => li.id === row.id);
     if (!existing) {
-      await logAudit(db, { entity: "line_item", entityId: row.id, action: "create" });
+      await logAudit(db, { entity: "line_item", entityId: row.id, entryId, action: "create" });
     } else {
       const lineDiff = buildDiff(existing, row);
       if (Object.keys(lineDiff).length > 0) {
-        await logAudit(db, { entity: "line_item", entityId: row.id, action: "edit", diff: lineDiff });
+        await logAudit(db, {
+          entity: "line_item",
+          entityId: row.id,
+          entryId,
+          action: "edit",
+          diff: lineDiff,
+        });
       }
     }
   }

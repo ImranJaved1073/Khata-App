@@ -8,8 +8,7 @@ import { useTranslation } from "react-i18next";
 import { db } from "../../db/client";
 import { formatMoney } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
-import { listAuditForEntity } from "../../repositories/auditRepository";
-import { getEntry } from "../../repositories/entryRepository";
+import { listAuditForEntity, listLineItemAuditForEntry } from "../../repositories/auditRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
@@ -43,18 +42,11 @@ export function EntryHistoryScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [entry, entryAudit, settings] = await Promise.all([
-        getEntry(db, entryId),
+      const [entryAudit, lineItemAudit, settings] = await Promise.all([
         listAuditForEntity(db, "entry", entryId),
+        listLineItemAuditForEntry(db, entryId),
         getSettings(db),
       ]);
-      const lineItemAudit = entry
-        ? (
-            await Promise.all(
-              entry.lineItems.map((li) => listAuditForEntity(db, "line_item", li.id)),
-            )
-          ).flat()
-        : [];
       const merged = [...entryAudit, ...lineItemAudit].sort((a, b) =>
         b.createdAt.localeCompare(a.createdAt),
       );
