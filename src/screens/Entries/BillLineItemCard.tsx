@@ -242,6 +242,12 @@ export function CollapsedLineRow({
       <Text style={styles.collapsedAmount} numberOfLines={1}>
         {formatMoney(amount, currencySymbol)}
       </Text>
+      <Ionicons
+        name="chevron-down"
+        size={16}
+        color={colors.textSecondary}
+        style={styles.collapsedChevron}
+      />
     </Pressable>
   );
 }
@@ -327,7 +333,7 @@ const makeStyles = (colors: AppColors) =>
   },
   swatchActive: {
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   row: {
     flexDirection: "row",
@@ -400,5 +406,8 @@ const makeStyles = (colors: AppColors) =>
     ...theme.typography.body,
     color: colors.textPrimary,
     fontWeight: "600",
+  },
+  collapsedChevron: {
+    marginStart: theme.spacing.xs,
   },
 });

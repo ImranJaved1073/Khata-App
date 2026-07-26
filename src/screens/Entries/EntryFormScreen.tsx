@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -333,6 +334,42 @@ export function EntryFormScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.dateNoteRow}>
+          <View style={[styles.dateRow, styles.dateNoteField]}>
+            <TextInput
+              value={entryDate}
+              onChangeText={setEntryDate}
+              style={[styles.input, styles.dateInput]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.textSecondary}
+            />
+            <Pressable
+              style={styles.calendarButton}
+              onPress={() => setEntryDate(todayDate())}
+              accessibilityRole="button"
+              accessibilityLabel={t("entry.today")}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={[styles.attachmentButton, styles.dateNoteField]}
+            onPress={handlePickAttachment}
+            accessibilityRole="button"
+            accessibilityLabel={t("entry.attachment")}
+          >
+            {attachmentUri ? (
+              <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
+            ) : (
+              <Ionicons name="camera-outline" size={18} color={colors.primary} />
+            )}
+            <Text style={styles.attachmentButtonText} numberOfLines={1}>
+              {t("entry.attachment")}
+            </Text>
+          </Pressable>
+        </View>
+
         {lineItems
           .filter((item) => item.key !== activeLine.key)
           .map((item) => (
@@ -358,28 +395,9 @@ export function EntryFormScreen() {
           accessibilityRole="button"
           accessibilityLabel={t("entry.addLine")}
         >
+          <Ionicons name="add" size={18} color={colors.primary} />
           <Text style={styles.addLineButtonText}>{t("entry.addLine")}</Text>
         </Pressable>
-
-        <Field label={t("entry.date")}>
-          <View style={styles.dateRow}>
-            <TextInput
-              value={entryDate}
-              onChangeText={setEntryDate}
-              style={[styles.input, styles.dateInput]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textSecondary}
-            />
-            <Pressable
-              style={styles.todayButton}
-              onPress={() => setEntryDate(todayDate())}
-              accessibilityRole="button"
-              accessibilityLabel={t("entry.today")}
-            >
-              <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
-            </Pressable>
-          </View>
-        </Field>
 
         <Field label={t("entry.note")}>
           <TextInput
@@ -391,27 +409,6 @@ export function EntryFormScreen() {
             multiline
           />
         </Field>
-
-        <Pressable
-          style={styles.attachmentButton}
-          onPress={handlePickAttachment}
-          accessibilityRole="button"
-          accessibilityLabel={t("entry.attachment")}
-        >
-          {attachmentUri ? (
-            <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
-          ) : (
-            <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
-          )}
-          <Text style={styles.attachmentButtonText}>{t("entry.attachment")}</Text>
-        </Pressable>
-
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{t("entry.total")}</Text>
-          <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit>
-            {formatMoney(billTotal, currencySymbol)}
-          </Text>
-        </View>
 
         {billError ? <Text style={styles.errorText}>{billError}</Text> : null}
 
@@ -425,7 +422,9 @@ export function EntryFormScreen() {
           {saving ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>{t("entry.save")}</Text>
+            <Text style={styles.saveButtonText} numberOfLines={1} adjustsFontSizeToFit>
+              {t("entry.saveBillWithTotal", { amount: formatMoney(billTotal, currencySymbol) })}
+            </Text>
           )}
         </Pressable>
       </ScrollView>
@@ -440,67 +439,76 @@ export function EntryFormScreen() {
     >
       <View style={styles.directionRow}>
         <DirectionOption
-          label={t("entry.gaveOnCredit")}
+          label={t("entry.directionOut")}
           active={direction === "cash_out"}
           color={colors.owesMe}
           onPress={() => setDirection("cash_out")}
         />
         <DirectionOption
-          label={t("entry.receivedPayment")}
+          label={t("entry.directionIn")}
           active={direction === "cash_in"}
           color={colors.iOwe}
           onPress={() => setDirection("cash_in")}
         />
       </View>
 
-      <Field label={t("entry.amount")} required>
-        <TextInput
-          value={amountInput}
-          onChangeText={(text) => {
-            setAmountInput(text);
-            if (amountError) setAmountError(null);
-          }}
-          style={styles.input}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
-          placeholderTextColor={colors.textSecondary}
-        />
-        {amountError ? <Text style={styles.errorText}>{amountError}</Text> : null}
-      </Field>
+      <TextInput
+        value={amountInput}
+        onChangeText={(text) => {
+          setAmountInput(text);
+          if (amountError) setAmountError(null);
+        }}
+        style={[
+          styles.amountInput,
+          { color: direction === "cash_out" ? colors.owesMe : colors.iOwe },
+        ]}
+        keyboardType="decimal-pad"
+        placeholder="0.00"
+        placeholderTextColor={colors.textSecondary}
+        textAlign="center"
+        accessibilityLabel={t("entry.amount")}
+      />
+      {amountError ? (
+        <Text style={[styles.errorText, styles.amountError]}>{amountError}</Text>
+      ) : null}
 
-      <Field label={t("entry.date")}>
-        <View style={styles.dateRow}>
+      <View style={styles.dateNoteRow}>
+        <Field label={t("entry.date")} style={styles.dateNoteField}>
+          <View style={styles.dateRow}>
+            <TextInput
+              value={entryDate}
+              onChangeText={setEntryDate}
+              style={[styles.input, styles.dateInput]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.textSecondary}
+            />
+            <Pressable
+              style={styles.calendarButton}
+              onPress={() => setEntryDate(todayDate())}
+              accessibilityRole="button"
+              accessibilityLabel={t("entry.today")}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+        </Field>
+
+        <Field label={t("entry.note")} style={styles.dateNoteField}>
           <TextInput
-            value={entryDate}
-            onChangeText={setEntryDate}
-            style={[styles.input, styles.dateInput]}
-            placeholder="YYYY-MM-DD"
+            value={note}
+            onChangeText={setNote}
+            style={styles.input}
+            placeholder={t("entry.note")}
             placeholderTextColor={colors.textSecondary}
           />
-          <Pressable
-            style={styles.todayButton}
-            onPress={() => setEntryDate(todayDate())}
-            accessibilityRole="button"
-            accessibilityLabel={t("entry.today")}
-          >
-            <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
-          </Pressable>
-        </View>
-      </Field>
-
-      <Field label={t("entry.note")}>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          style={[styles.input, styles.multilineInput]}
-          placeholder={t("entry.note")}
-          placeholderTextColor={colors.textSecondary}
-          multiline
-        />
-      </Field>
+        </Field>
+      </View>
 
       <Pressable
-        style={styles.saveButton}
+        style={[
+          styles.saveButton,
+          { backgroundColor: direction === "cash_out" ? colors.owesMe : colors.iOwe },
+        ]}
         onPress={handleSaveSimple}
         disabled={saving}
         accessibilityRole="button"
@@ -550,16 +558,18 @@ function DirectionOption({
 function Field({
   label,
   required,
+  style,
   children,
 }: {
   label: string;
   required?: boolean;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, style]}>
       <Text style={styles.fieldLabel}>
         {label}
         {required ? " *" : ""}
@@ -630,25 +640,39 @@ const makeStyles = (colors: AppColors) =>
     minHeight: 80,
     textAlignVertical: "top",
   },
+  amountInput: {
+    fontSize: 40,
+    fontWeight: "700",
+    paddingVertical: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  amountError: {
+    textAlign: "center",
+  },
+  dateNoteRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  dateNoteField: {
+    flex: 1,
+  },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
-  },
-  dateInput: {
-    flex: 1,
-  },
-  todayButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    gap: theme.spacing.xs,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    borderRadius: theme.radius.md,
+    paddingEnd: theme.spacing.xs,
   },
-  todayButtonText: {
-    ...theme.typography.caption,
-    color: colors.textPrimary,
+  dateInput: {
+    flex: 1,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+  },
+  calendarButton: {
+    padding: theme.spacing.xs,
   },
   errorText: {
     ...theme.typography.caption,
@@ -670,12 +694,15 @@ const makeStyles = (colors: AppColors) =>
     fontWeight: "600",
   },
   addLineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    borderStyle: "dashed",
     marginBottom: theme.spacing.lg,
   },
   addLineButtonText: {
@@ -686,38 +713,23 @@ const makeStyles = (colors: AppColors) =>
   attachmentButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
+    justifyContent: "center",
+    gap: theme.spacing.xs,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    marginBottom: theme.spacing.md,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
   },
   attachmentButtonText: {
-    ...theme.typography.body,
-    color: colors.textSecondary,
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: "600",
   },
   attachmentThumb: {
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderRadius: theme.radius.sm,
-  },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  totalLabel: {
-    ...theme.typography.heading,
-    color: colors.textPrimary,
-  },
-  totalAmount: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.textPrimary,
   },
 });

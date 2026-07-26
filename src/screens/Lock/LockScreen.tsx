@@ -13,8 +13,20 @@ import {
 } from "../../lib/appLock";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
+import { darkColors, lightColors, withAlpha } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
+
+/**
+ * The lock screen is a fixed navy "hard gate" identity (spec's own reference distinct from
+ * light/dark app theming) — always the light palette's navy/gold, with the dark palette's
+ * lighter accents borrowed for contrast on that navy, regardless of the user's theme setting.
+ */
+const LOCK_BG = lightColors.primary;
+const LOCK_ACCENT = lightColors.accent;
+const LOCK_MUTED = darkColors.primaryMuted;
+const LOCK_MUTED_TEXT = lightColors.primaryMuted;
+const LOCK_DANGER = darkColors.owesMe;
 
 const KEYPAD_ROWS: (string | "biometric" | "backspace" | null)[][] = [
   ["1", "2", "3"],
@@ -126,11 +138,17 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.logoCircle}>
-          <Ionicons name="lock-closed" size={28} color={colors.onPrimary} />
+        <View style={[styles.logoCircle, isLocked && styles.logoCircleLocked]}>
+          <Ionicons
+            name={isLocked ? "lock-open" : "lock-closed"}
+            size={28}
+            color={isLocked ? LOCK_DANGER : LOCK_ACCENT}
+          />
         </View>
+        <Text style={styles.title}>
+          {isLocked ? t("lock.tooManyAttempts") : t("lock.enterPin")}
+        </Text>
         <Text style={styles.businessName}>{businessName || t("app.name")}</Text>
-        <Text style={styles.title}>{t("lock.enterPin")}</Text>
       </View>
 
       <View style={styles.dotsRow}>
@@ -148,7 +166,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
       <View style={styles.statusArea}>
         {verifying ? (
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.onPrimary} />
         ) : isLocked ? (
           <Text style={styles.errorText}>
             {t("lock.lockedMessage", { seconds: remainingSeconds })}
@@ -169,18 +187,14 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                 return (
                   <Pressable
                     key={keyIndex}
-                    style={styles.key}
+                    style={[styles.key, isLocked && styles.keyDisabled]}
                     accessibilityLabel={t("lock.useBiometric")}
                     accessibilityRole="button"
                     onPress={tryBiometric}
                     disabled={!biometricReady || isLocked}
                   >
                     {biometricReady ? (
-                      <Ionicons
-                        name="finger-print"
-                        size={28}
-                        color={isLocked ? colors.textSecondary : colors.primary}
-                      />
+                      <Ionicons name="finger-print" size={28} color={LOCK_ACCENT} />
                     ) : null}
                   </Pressable>
                 );
@@ -189,20 +203,20 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                 return (
                   <Pressable
                     key={keyIndex}
-                    style={styles.key}
+                    style={[styles.key, isLocked && styles.keyDisabled]}
                     accessibilityLabel={t("lock.backspace")}
                     accessibilityRole="button"
                     onPress={handleBackspace}
                     disabled={isLocked}
                   >
-                    <Ionicons name="backspace-outline" size={24} color={colors.textPrimary} />
+                    <Ionicons name="backspace-outline" size={24} color={colors.onPrimary} />
                   </Pressable>
                 );
               }
               return (
                 <Pressable
                   key={keyIndex}
-                  style={styles.key}
+                  style={[styles.key, isLocked && styles.keyDisabled]}
                   onPress={() => handleDigit(key)}
                   disabled={isLocked}
                   accessibilityRole="button"
@@ -223,7 +237,7 @@ const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: LOCK_BG,
       alignItems: "center",
       justifyContent: "center",
       padding: theme.spacing.lg,
@@ -235,20 +249,23 @@ const makeStyles = (colors: AppColors) =>
     logoCircle: {
       width: 64,
       height: 64,
-      borderRadius: theme.radius.pill,
-      backgroundColor: colors.primary,
+      borderRadius: theme.radius.md,
+      backgroundColor: LOCK_MUTED,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: theme.spacing.md,
     },
-    businessName: {
-      ...theme.typography.heading,
-      color: colors.textPrimary,
-      marginBottom: theme.spacing.xs,
+    logoCircleLocked: {
+      backgroundColor: withAlpha(LOCK_DANGER, 0.25),
     },
     title: {
+      ...theme.typography.heading,
+      color: colors.onPrimary,
+      marginBottom: theme.spacing.xs,
+    },
+    businessName: {
       ...theme.typography.body,
-      color: colors.textSecondary,
+      color: LOCK_MUTED_TEXT,
     },
     dotsRow: {
       flexDirection: "row",
@@ -260,16 +277,16 @@ const makeStyles = (colors: AppColors) =>
       height: 16,
       borderRadius: theme.radius.pill,
       borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      borderColor: LOCK_MUTED_TEXT,
+      backgroundColor: "transparent",
     },
     dotFilled: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      backgroundColor: LOCK_ACCENT,
+      borderColor: LOCK_ACCENT,
     },
     dotError: {
-      backgroundColor: colors.danger,
-      borderColor: colors.danger,
+      backgroundColor: LOCK_DANGER,
+      borderColor: LOCK_DANGER,
     },
     statusArea: {
       height: 24,
@@ -279,11 +296,12 @@ const makeStyles = (colors: AppColors) =>
     },
     errorText: {
       ...theme.typography.caption,
-      color: colors.danger,
+      color: LOCK_DANGER,
+      fontWeight: "600",
     },
     hintText: {
       ...theme.typography.caption,
-      color: colors.textSecondary,
+      color: LOCK_MUTED_TEXT,
     },
     keypad: {
       gap: theme.spacing.md,
@@ -298,11 +316,14 @@ const makeStyles = (colors: AppColors) =>
       borderRadius: theme.radius.pill,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: colors.surface,
+      backgroundColor: LOCK_MUTED,
+    },
+    keyDisabled: {
+      opacity: 0.4,
     },
     keyText: {
       fontSize: 26,
       fontWeight: "600",
-      color: colors.textPrimary,
+      color: colors.onPrimary,
     },
   });

@@ -17,8 +17,10 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import { Avatar } from "../../components/Avatar";
 import { db } from "../../db/client";
-import { formatMoneyInput, parseMoneyInput } from "../../lib/money";
+import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
+import { getInitials } from "../../lib/textFormat";
 import type { CustomersStackParamList } from "../../navigation/types";
 import {
   createCustomer,
@@ -26,6 +28,7 @@ import {
   setCustomerArchived,
   updateCustomer,
 } from "../../repositories/customerRepository";
+import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
@@ -54,7 +57,7 @@ export function CustomerFormScreen() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(route.params?.initialName ?? "");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [openingBalanceInput, setOpeningBalanceInput] = useState("0.00");
@@ -62,12 +65,27 @@ export function CustomerFormScreen() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isArchived, setIsArchived] = useState(false);
+  const [currencySymbolLabel, setCurrencySymbolLabel] = useState("Rs");
+
+  const openingBalanceAmount = parseMoneyInput(openingBalanceInput);
+  const openingBalanceColor =
+    openingBalanceAmount > 0
+      ? colors.owesMe
+      : openingBalanceAmount < 0
+        ? colors.iOwe
+        : colors.textPrimary;
 
   useEffect(() => {
     navigation.setOptions({
       title: isEdit ? t("customerForm.titleEdit") : t("customerForm.titleNew"),
     });
   }, [navigation, isEdit, t]);
+
+  useEffect(() => {
+    getSettings(db)
+      .then((settings) => setCurrencySymbolLabel(settings.currencySymbol))
+      .catch((error: Error) => console.error(error));
+  }, []);
 
   useEffect(() => {
     if (!customerId) return;
@@ -201,14 +219,21 @@ export function CustomerFormScreen() {
         accessibilityRole="button"
         accessibilityLabel={t("customerForm.photo")}
       >
-        {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photo} />
-        ) : (
-          <View style={styles.photoPlaceholder}>
-            <Ionicons name="camera" size={28} color={colors.textSecondary} />
+        <View>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.photo} />
+          ) : (
+            <Avatar
+              label={getInitials(name || "?")}
+              size={112}
+              backgroundColor={colors.primarySoft}
+              color={colors.primary}
+            />
+          )}
+          <View style={styles.photoBadge}>
+            <Ionicons name="camera" size={16} color={colors.onPrimary} />
           </View>
-        )}
-        <Text style={styles.photoLabel}>{t("customerForm.photo")}</Text>
+        </View>
       </Pressable>
 
       <Field label={t("customerForm.name")} required>
@@ -226,17 +251,27 @@ export function CustomerFormScreen() {
       </Field>
 
       <Field label={t("customerForm.phone")}>
-        <TextInput
-          value={phone}
-          onChangeText={(text) => {
-            setPhone(text);
-            if (phoneError) setPhoneError(null);
-          }}
-          style={styles.input}
-          placeholder={t("customerForm.phone")}
-          placeholderTextColor={colors.textSecondary}
-          keyboardType="phone-pad"
-        />
+        <View style={styles.inputRow}>
+          <TextInput
+            value={phone}
+            onChangeText={(text) => {
+              setPhone(text);
+              if (phoneError) setPhoneError(null);
+            }}
+            style={[styles.input, styles.inputRowField]}
+            placeholder={t("customerForm.phone")}
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="phone-pad"
+          />
+          {phone.trim().length > 0 && isValidPhone(phone) ? (
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={colors.success}
+              style={styles.inputRowIcon}
+            />
+          ) : null}
+        </View>
         {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
       </Field>
 
@@ -252,40 +287,50 @@ export function CustomerFormScreen() {
       </Field>
 
       <Field label={t("customerForm.openingBalance")}>
-        <TextInput
-          value={openingBalanceInput}
-          onChangeText={setOpeningBalanceInput}
-          style={styles.input}
-          placeholder="0.00"
-          placeholderTextColor={colors.textSecondary}
-          keyboardType="decimal-pad"
-        />
+        <View style={styles.balanceInputBox}>
+          <Text style={styles.balancePrefix}>{currencySymbolLabel}</Text>
+          <TextInput
+            value={openingBalanceInput}
+            onChangeText={setOpeningBalanceInput}
+            style={[styles.balanceInput, { color: openingBalanceColor }]}
+            placeholder="0.00"
+            placeholderTextColor={colors.textSecondary}
+            keyboardType="decimal-pad"
+          />
+          {openingBalanceAmount !== 0 ? (
+            <Text style={styles.balanceSuffix}>
+              {openingBalanceAmount > 0
+                ? t("khata.theyOweYou")
+                : t("khata.youOweThem")}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={styles.balancePreview}>
+          {t("customerForm.balancePreview", {
+            amount: formatMoney(Math.abs(openingBalanceAmount), currencySymbolLabel),
+            direction:
+              openingBalanceAmount > 0
+                ? t("customerForm.receivable")
+                : openingBalanceAmount < 0
+                  ? t("customerForm.payable")
+                  : t("khata.settled"),
+          })}
+        </Text>
       </Field>
 
-      <View style={styles.actions}>
-        <Pressable
-          style={[styles.button, styles.cancelButton]}
-          onPress={() => navigation.goBack()}
-          disabled={saving || archiving}
-          accessibilityRole="button"
-          accessibilityLabel={t("customerForm.cancel")}
-        >
-          <Text style={styles.cancelButtonText}>{t("customerForm.cancel")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.button, styles.saveButton]}
-          onPress={handleSave}
-          disabled={saving || archiving}
-          accessibilityRole="button"
-          accessibilityLabel={t("customerForm.save")}
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.onPrimary} />
-          ) : (
-            <Text style={styles.saveButtonText}>{t("customerForm.save")}</Text>
-          )}
-        </Pressable>
-      </View>
+      <Pressable
+        style={styles.saveButton}
+        onPress={handleSave}
+        disabled={saving || archiving}
+        accessibilityRole="button"
+        accessibilityLabel={t("customerForm.save")}
+      >
+        {saving ? (
+          <ActivityIndicator color={colors.onPrimary} />
+        ) : (
+          <Text style={styles.saveButtonText}>{t("customerForm.save")}</Text>
+        )}
+      </Pressable>
 
       {isEdit ? (
         <Pressable
@@ -298,9 +343,12 @@ export function CustomerFormScreen() {
           {archiving ? (
             <ActivityIndicator color={colors.danger} />
           ) : (
-            <Text style={styles.archiveButtonText}>
-              {isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
-            </Text>
+            <>
+              <Ionicons name="archive-outline" size={18} color={colors.danger} />
+              <Text style={styles.archiveButtonText}>
+                {isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
+              </Text>
+            </>
           )}
         </Pressable>
       ) : null}
@@ -350,24 +398,22 @@ const makeStyles = (colors: AppColors) =>
     marginBottom: theme.spacing.lg,
   },
   photo: {
-    width: 88,
-    height: 88,
+    width: 112,
+    height: 112,
     borderRadius: theme.radius.pill,
   },
-  photoPlaceholder: {
-    width: 88,
-    height: 88,
+  photoBadge: {
+    position: "absolute",
+    end: -2,
+    bottom: -2,
+    width: 32,
+    height: 32,
     borderRadius: theme.radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-  },
-  photoLabel: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginTop: theme.spacing.xs,
   },
   field: {
     marginBottom: theme.spacing.md,
@@ -380,7 +426,7 @@ const makeStyles = (colors: AppColors) =>
   input: {
     ...theme.typography.body,
     color: colors.textPrimary,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: theme.radius.md,
@@ -391,34 +437,59 @@ const makeStyles = (colors: AppColors) =>
     minHeight: 80,
     textAlignVertical: "top",
   },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  inputRowField: {
+    flex: 1,
+  },
+  inputRowIcon: {
+    position: "absolute",
+    end: theme.spacing.md,
+  },
+  balanceInputBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+  balancePrefix: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+  },
+  balanceInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    padding: 0,
+  },
+  balanceSuffix: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+  },
+  balancePreview: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
   errorText: {
     ...theme.typography.caption,
     color: colors.danger,
     marginTop: theme.spacing.xs,
   },
-  actions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
+  saveButton: {
     marginTop: theme.spacing.md,
-  },
-  button: {
-    flex: 1,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-  },
-  cancelButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    ...theme.typography.body,
-    color: colors.textPrimary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
   },
   saveButtonText: {
     ...theme.typography.body,
@@ -426,13 +497,19 @@ const makeStyles = (colors: AppColors) =>
     fontWeight: "600",
   },
   archiveButton: {
-    marginTop: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
   },
   archiveButtonText: {
     ...theme.typography.body,
     color: colors.danger,
+    fontWeight: "600",
   },
 });

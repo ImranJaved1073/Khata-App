@@ -46,6 +46,10 @@ export const lightColors = {
   success: "#20603D",
   /** Text/icon color that reads correctly on top of a `primary`-filled surface. */
   onPrimary: "#FFFFFF",
+  /** Soft tint backgrounds for icon chips/avatars — pixel-sampled from design/ mockups, never used for text. */
+  primarySoft: "#EAF0F7",
+  owesMeSoft: "#F9EBE9",
+  iOweSoft: "#E8EFEB",
 } as const;
 
 export const darkColors: { [K in keyof typeof lightColors]: string } = {
@@ -63,9 +67,20 @@ export const darkColors: { [K in keyof typeof lightColors]: string } = {
   danger: "#E5705F",
   success: "#4CAF7D",
   onPrimary: "#FFFFFF",
+  primarySoft: "#3A4A63",
+  owesMeSoft: "#3C2C2E",
+  iOweSoft: "#233633",
 };
 
 export type AppColors = { [K in keyof typeof lightColors]: string };
 
 /** Default (light) palette. Kept as `colors` for static importers such as the PDF/receipt builder, which always renders light. */
 export const colors: AppColors = lightColors;
+
+/** `#RRGGBB` + 0-1 alpha -> `rgba(...)`, for the one translucent-tint pattern in the design (the khata balance banner). */
+export function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}

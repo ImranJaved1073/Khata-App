@@ -101,7 +101,7 @@ function ThemedApp({
     colors: {
       ...(scheme === "dark" ? DarkTheme : DefaultTheme).colors,
       background: colors.background,
-      card: colors.surface,
+      card: colors.background,
       text: colors.textPrimary,
       border: colors.border,
       primary: colors.primary,
@@ -133,7 +133,9 @@ function ThemedApp({
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         {content}
-        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        {/* Lock screen is a fixed navy identity regardless of theme (see LockScreen.tsx) — its
+            status bar must stay light even when the resolved app theme is otherwise light. */}
+        <StatusBar style={locked || scheme === "dark" ? "light" : "dark"} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

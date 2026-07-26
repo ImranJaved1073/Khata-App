@@ -6,7 +6,11 @@
     "errorTitle": "Something went wrong",
     "errorMessage": "Please try again.",
     "cancel": "Cancel",
-    "retry": "Retry"
+    "retry": "Retry",
+    "today": "Today, {{time}}",
+    "yesterday": "Yesterday",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
   },
   "nav": {
     "home": "Home",
@@ -16,12 +20,17 @@
   },
   "home": {
     "title": "Dashboard",
-    "totalReceivable": "Total receivable",
-    "totalPayable": "Total payable",
+    "totalReceivable": "Receivable",
+    "totalPayable": "Payable",
     "customerCount": "Customers",
     "todaysActivity": "Today's activity",
     "newCustomer": "New Customer",
-    "noActivityToday": "No activity yet today."
+    "noActivityToday": "No activity yet today.",
+    "notifications": "Notifications",
+    "receivableCaption_one": "owed to you · {{count}} party",
+    "receivableCaption_other": "owed to you · {{count}} parties",
+    "payableCaption_one": "you owe · {{count}} party",
+    "payableCaption_other": "you owe · {{count}} parties"
   },
   "customers": {
     "title": "Customers",
@@ -36,7 +45,13 @@
     "filterPayable": "I owe",
     "clearFilter": "Clear filter: {{filter}}",
     "emptyFilterReceivable": "No one owes you anything right now.",
-    "emptyFilterPayable": "You don't owe anyone right now."
+    "emptyFilterPayable": "You don't owe anyone right now.",
+    "emptyTitle": "No customers yet",
+    "emptyDescription": "Add your first customer to start recording udhaar and bills.",
+    "addFirstCustomer": "Add first customer",
+    "noResultsTitle": "No matches for \"{{query}}\"",
+    "noResultsDescription": "Check the spelling, or add them as a new customer.",
+    "addNamed": "Add \"{{query}}\""
   },
   "customerForm": {
     "titleNew": "Add Customer",
@@ -55,10 +70,17 @@
     "archiveConfirmMessage": "They'll be hidden from your customer list, but their history is kept.",
     "unarchive": "Unarchive",
     "unarchiveConfirmTitle": "Unarchive this customer?",
-    "unarchiveConfirmMessage": "They'll reappear in your main customer list."
+    "unarchiveConfirmMessage": "They'll reappear in your main customer list.",
+    "balancePreview": "Preview: {{amount}} {{direction}}",
+    "receivable": "receivable",
+    "payable": "payable"
   },
   "khata": {
     "newEntry": "New Entry",
+    "newEntryFor": "Add to {{name}}'s khata",
+    "newEntryPrompt": "What kind of entry?",
+    "itemizedBillHint": "Garments with size, colour, qty",
+    "simpleEntryHint": "Just a cash amount & note",
     "simpleEntry": "Simple entry",
     "shareStatement": "Share statement",
     "empty": "No entries yet.",
@@ -76,6 +98,11 @@
   "entry": {
     "gaveOnCredit": "Gave on credit (cash out)",
     "receivedPayment": "Received payment (cash in)",
+    "directionOut": "You gave (out)",
+    "directionIn": "You got (in)",
+    "activityNewBill": "New bill",
+    "activityPaymentReceived": "Payment received",
+    "activitySimpleEntry": "Simple entry",
     "itemizedBill": "Itemized bill",
     "amount": "Amount",
     "amountRequired": "Enter an amount greater than 0",
@@ -85,6 +112,7 @@
     "addLine": "+ Add line",
     "total": "Total",
     "save": "Save",
+    "saveBillWithTotal": "Save bill · {{amount}}",
     "lineItem": "Item",
     "removeLine": "Remove item",
     "itemName": "Item name",
@@ -115,12 +143,22 @@
     "historyDeleted": "Deleted",
     "historyActorOwner": "by Owner",
     "historyActorHelper": "by Helper",
-    "share": "Share"
+    "share": "Share",
+    "detailOwesYou": "Owes you",
+    "detailYouPaid": "You paid",
+    "tableItem": "Item",
+    "tableQty": "Qty",
+    "tableAmount": "Amount",
+    "attachedReceipt": "Attached receipt",
+    "tapToView": "Tap to view"
   },
   "share": {
     "whatsapp": "WhatsApp",
+    "whatsappHint": "Send PDF + reminder message",
     "sms": "SMS",
+    "smsHint": "Text the balance & due",
     "pdf": "PDF",
+    "pdfHint": "Generate & open / print",
     "billTitle": "Share bill",
     "statementTitle": "Share statement",
     "unavailable": "Sharing isn't available on this device."
@@ -136,6 +174,7 @@
     "entries": "Entries",
     "empty": "Add some entries first — there's nothing to export yet.",
     "dateRange": "Date range",
+    "rangeSummary": "{{from}} – {{to}}",
     "dateFrom": "From",
     "dateTo": "To",
     "clearFilter": "Clear",
@@ -160,6 +199,7 @@
     "pinLocked": "Too many attempts. Try again shortly.",
     "biometric": "Biometric unlock",
     "billFooter": "Bill footer text",
+    "businessProfileHint": "Name, logo, currency",
     "backupRestore": "Backup / Restore",
     "exportBackup": "Export backup",
     "restore": "Restore",
@@ -176,6 +216,7 @@
   },
   "lock": {
     "enterPin": "Enter PIN",
+    "tooManyAttempts": "Too many attempts",
     "useBiometric": "Use biometric unlock",
     "biometricPrompt": "Unlock Khata",
     "backspace": "Delete digit",
@@ -185,14 +226,19 @@
     "lockedMessage": "Too many attempts. Try again in {{seconds}}s"
   },
   "onboarding": {
-    "welcomeTitle": "Welcome to Khata",
-    "welcomeSubtitle": "Let's set up your shop in a few steps.",
+    "welcomeTitle": "Set up your shop",
+    "welcomeSubtitle": "This appears on your bills and statements.",
     "businessName": "Business name",
     "businessNamePlaceholder": "e.g. Master Fashion",
     "currency": "Currency symbol",
     "language": "Language",
-    "appearanceTitle": "Appearance",
+    "appearanceTitle": "Choose appearance",
+    "appearanceSubtitle": "Preview updates as you tap.",
     "theme": "Theme",
+    "themeLightHint": "Best in daylight",
+    "themeDarkHint": "Easy on the eyes",
+    "themeSystemHint": "Match phone setting",
+    "skip": "Skip",
     "securityTitle": "Secure your khata",
     "pinHint": "Set a 4-digit PIN to keep your ledger private. You can skip this and add it later in Settings.",
     "pin": "PIN",

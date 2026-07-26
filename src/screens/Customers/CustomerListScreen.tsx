@@ -15,8 +15,11 @@ import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import { Avatar } from "../../components/Avatar";
 import { db } from "../../db/client";
+import { formatRelativeDate } from "../../lib/dateFormat";
 import { formatMoney } from "../../lib/money";
+import { getInitials } from "../../lib/textFormat";
 import type { CustomerBalanceFilter, CustomersStackParamList } from "../../navigation/types";
 import type {
   CustomerSort,
@@ -86,8 +89,9 @@ export function CustomerListScreen() {
     }, [load, sort]),
   );
 
+  const trimmedQuery = query.trim();
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = trimmedQuery.toLowerCase();
     return customers.filter((customer) => {
       if (customer.isArchived !== showArchived) return false;
       if (balanceFilter === "receivable" && customer.balance <= 0) return false;
@@ -98,18 +102,15 @@ export function CustomerListScreen() {
         (customer.phone ?? "").toLowerCase().includes(needle)
       );
     });
-  }, [customers, query, showArchived, balanceFilter]);
+  }, [customers, trimmedQuery, showArchived, balanceFilter]);
 
-  const emptyMessage = showArchived
-    ? t("customers.emptyArchived")
-    : balanceFilter === "receivable"
-      ? t("customers.emptyFilterReceivable")
-      : balanceFilter === "payable"
-        ? t("customers.emptyFilterPayable")
-        : t("customers.empty");
+  const isTrulyEmpty = customers.length === 0;
+  const isNoSearchResults = !isTrulyEmpty && trimmedQuery.length > 0 && filtered.length === 0;
 
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>{t("customers.title")}</Text>
+
       <View style={styles.searchRow}>
         <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
@@ -119,6 +120,16 @@ export function CustomerListScreen() {
           placeholderTextColor={colors.textSecondary}
           style={styles.searchInput}
         />
+        {query.length > 0 ? (
+          <Pressable
+            onPress={() => setQuery("")}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.cancel")}
+            hitSlop={8}
+          >
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.sortRow}>
@@ -160,9 +171,34 @@ export function CustomerListScreen() {
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : isTrulyEmpty ? (
+        <EmptyState
+          icon="people"
+          title={t("customers.emptyTitle")}
+          description={t("customers.emptyDescription")}
+          ctaLabel={t("customers.addFirstCustomer")}
+          onPressCta={() => navigation.navigate("CustomerForm", undefined)}
+        />
+      ) : isNoSearchResults ? (
+        <EmptyState
+          icon="search"
+          title={t("customers.noResultsTitle", { query: trimmedQuery })}
+          description={t("customers.noResultsDescription")}
+          ctaLabel={t("customers.addNamed", { query: trimmedQuery })}
+          ctaVariant="outline"
+          onPressCta={() =>
+            navigation.navigate("CustomerForm", { initialName: trimmedQuery })
+          }
+        />
       ) : filtered.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{emptyMessage}</Text>
+          <Text style={styles.emptyText}>
+            {showArchived
+              ? t("customers.emptyArchived")
+              : balanceFilter === "receivable"
+                ? t("customers.emptyFilterReceivable")
+                : t("customers.emptyFilterPayable")}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -191,6 +227,54 @@ export function CustomerListScreen() {
         onPress={() => navigation.navigate("CustomerForm", undefined)}
       >
         <Ionicons name="add" size={28} color={colors.onPrimary} />
+      </Pressable>
+    </View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  description,
+  ctaLabel,
+  ctaVariant = "filled",
+  onPressCta,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  ctaVariant?: "filled" | "outline";
+  onPressCta: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyIconBox}>
+        <Ionicons name={icon} size={40} color={colors.primary} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyText}>{description}</Text>
+      <Pressable
+        style={[styles.emptyCta, ctaVariant === "outline" && styles.emptyCtaOutline]}
+        onPress={onPressCta}
+        accessibilityRole="button"
+        accessibilityLabel={ctaLabel}
+      >
+        <Ionicons
+          name="person-add"
+          size={16}
+          color={ctaVariant === "outline" ? colors.primary : colors.onPrimary}
+        />
+        <Text
+          style={[
+            styles.emptyCtaText,
+            ctaVariant === "outline" && { color: colors.primary },
+          ]}
+        >
+          {ctaLabel}
+        </Text>
       </Pressable>
     </View>
   );
@@ -233,6 +317,7 @@ function CustomerRow({
   currencySymbol: string;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const balanceColor =
@@ -241,19 +326,29 @@ function CustomerRow({
       : customer.balance < 0
         ? colors.iOwe
         : colors.neutralBalance;
+  const relative = formatRelativeDate(customer.lastActivityAt);
+  const relativeLabel =
+    relative.kind === "today"
+      ? t("common.today", { time: relative.time })
+      : relative.kind === "yesterday"
+        ? t("common.yesterday")
+        : relative.kind === "daysAgo"
+          ? t("common.daysAgo", { count: relative.count })
+          : relative.value;
 
   return (
     <Pressable style={styles.row} onPress={onPress} accessibilityRole="button">
+      <Avatar
+        label={getInitials(customer.name)}
+        size={48}
+        backgroundColor={colors.primarySoft}
+        color={colors.primary}
+      />
       <View style={styles.rowInfo}>
         <Text style={styles.rowName} numberOfLines={1}>
           {customer.name}
         </Text>
-        {customer.phone ? (
-          <Text style={styles.rowSubtext}>{customer.phone}</Text>
-        ) : null}
-        <Text style={styles.rowSubtext}>
-          {new Date(customer.lastActivityAt).toLocaleDateString()}
-        </Text>
+        <Text style={styles.rowSubtext}>{relativeLabel}</Text>
       </View>
       <Text style={[styles.rowBalance, { color: balanceColor }]} numberOfLines={1}>
         {formatMoney(customer.balance, currencySymbol)}
@@ -268,6 +363,12 @@ const makeStyles = (colors: AppColors) =>
     flex: 1,
     backgroundColor: colors.background,
   },
+  title: {
+    ...theme.typography.title,
+    color: colors.textPrimary,
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.md,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,7 +377,7 @@ const makeStyles = (colors: AppColors) =>
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     gap: theme.spacing.sm,
@@ -288,9 +389,13 @@ const makeStyles = (colors: AppColors) =>
   },
   sortRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.sm,
     marginHorizontal: theme.spacing.md,
     marginTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   sortChip: {
     paddingHorizontal: theme.spacing.md,
@@ -306,6 +411,7 @@ const makeStyles = (colors: AppColors) =>
   sortChipText: {
     ...theme.typography.caption,
     color: colors.textSecondary,
+    fontWeight: "600",
   },
   sortChipTextActive: {
     color: colors.onPrimary,
@@ -320,11 +426,11 @@ const makeStyles = (colors: AppColors) =>
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   rowInfo: {
     flex: 1,
@@ -348,10 +454,45 @@ const makeStyles = (colors: AppColors) =>
     justifyContent: "center",
     padding: theme.spacing.lg,
   },
+  emptyIconBox: {
+    width: 96,
+    height: 96,
+    borderRadius: theme.radius.lg,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  emptyTitle: {
+    ...theme.typography.heading,
+    color: colors.textPrimary,
+    marginBottom: theme.spacing.xs,
+    textAlign: "center",
+  },
   emptyText: {
     ...theme.typography.body,
     color: colors.textSecondary,
     textAlign: "center",
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    backgroundColor: colors.primary,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+  },
+  emptyCtaOutline: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  emptyCtaText: {
+    ...theme.typography.body,
+    color: colors.onPrimary,
+    fontWeight: "600",
   },
   fab: {
     position: "absolute",

@@ -6,7 +6,7 @@ export type CustomerBalanceFilter = "receivable" | "payable";
 
 export type CustomersStackParamList = {
   CustomerList: { initialSort?: CustomerSort; balanceFilter?: CustomerBalanceFilter } | undefined;
-  CustomerForm: { customerId?: string } | undefined;
+  CustomerForm: { customerId?: string; initialName?: string } | undefined;
   CustomerKhata: { customerId: string };
   EntryForm: { customerId: string; entryId?: string; mode: "simple" | "bill" };
   EntryDetail: { entryId: string };

@@ -10,8 +10,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Avatar } from "../../components/Avatar";
 import { LanguageSelector } from "../../components/LanguageSelector";
 import { ThemeModeSelector } from "../../components/ThemeModeSelector";
 import { db } from "../../db/client";
@@ -27,12 +29,15 @@ import {
 } from "../../lib/appLock";
 import { BACKUP_FILE_NAME, BACKUP_MIME, pickBackupFile } from "../../lib/backupFile";
 import { writeAndShareFile } from "../../lib/exportFile";
+import { getInitials } from "../../lib/textFormat";
 import { getBackupData, isBackupData, restoreBackupData } from "../../repositories/backupRepository";
 import { getSettings, updateSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { AppLanguage, Settings } from "../../types/models";
+
+const CURRENCY_PRESETS = ["Rs", "₹", "৳", "$"];
 
 export function SettingsScreen() {
   const { t } = useTranslation();
@@ -119,7 +124,25 @@ export function SettingsScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
+      <Text style={styles.screenTitle}>{t("settings.title")}</Text>
+
       <Section title={t("settings.businessProfile")}>
+        <View style={styles.profilePreviewRow}>
+          <Avatar
+            label={getInitials(businessName || t("app.name"))}
+            size={48}
+            shape="square"
+            backgroundColor={colors.primary}
+            color={colors.accent}
+          />
+          <View style={styles.profilePreviewInfo}>
+            <Text style={styles.profilePreviewName} numberOfLines={1}>
+              {businessName || t("app.name")}
+            </Text>
+            <Text style={styles.profilePreviewHint}>{t("settings.businessProfileHint")}</Text>
+          </View>
+        </View>
+
         <Field label={t("onboarding.businessName")}>
           <TextInput
             value={businessName}
@@ -130,6 +153,30 @@ export function SettingsScreen() {
           />
         </Field>
         <Field label={t("settings.currency")}>
+          <View style={styles.currencyChipRow}>
+            {CURRENCY_PRESETS.map((preset) => (
+              <Pressable
+                key={preset}
+                style={[
+                  styles.currencyChip,
+                  currencySymbol === preset && styles.currencyChipActive,
+                ]}
+                onPress={() => setCurrencySymbol(preset)}
+                accessibilityRole="button"
+                accessibilityLabel={preset}
+                accessibilityState={{ selected: currencySymbol === preset }}
+              >
+                <Text
+                  style={[
+                    styles.currencyChipText,
+                    currencySymbol === preset && styles.currencyChipTextActive,
+                  ]}
+                >
+                  {preset}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
           <TextInput
             value={currencySymbol}
             onChangeText={setCurrencySymbol}
@@ -342,6 +389,7 @@ function PinSection({
               accessibilityRole="button"
               accessibilityLabel={t("settings.setPin")}
             >
+              <Ionicons name="keypad-outline" size={18} color={colors.textPrimary} />
               <Text style={styles.secondaryButtonText}>{t("settings.setPin")}</Text>
             </Pressable>
           ) : (
@@ -352,6 +400,7 @@ function PinSection({
                 accessibilityRole="button"
                 accessibilityLabel={t("settings.changePin")}
               >
+                <Ionicons name="keypad-outline" size={18} color={colors.textPrimary} />
                 <Text style={styles.secondaryButtonText}>{t("settings.changePin")}</Text>
               </Pressable>
               <Pressable
@@ -360,6 +409,7 @@ function PinSection({
                 accessibilityRole="button"
                 accessibilityLabel={t("settings.removePin")}
               >
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
                 <Text style={styles.dangerButtonText}>{t("settings.removePin")}</Text>
               </Pressable>
             </>
@@ -465,6 +515,7 @@ function PinSection({
 
       {hasPinState && biometricHardware ? (
         <View style={[styles.switchRow, styles.biometricRow]}>
+          <Ionicons name="finger-print-outline" size={18} color={colors.textPrimary} />
           <Text style={styles.switchLabel}>{t("settings.biometric")}</Text>
           <Switch
             value={biometricEnabled}
@@ -559,7 +610,10 @@ function BackupSection() {
         {busy === "export" ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
-          <Text style={styles.secondaryButtonText}>{t("settings.exportBackup")}</Text>
+          <>
+            <Ionicons name="cloud-upload-outline" size={18} color={colors.textPrimary} />
+            <Text style={styles.secondaryButtonText}>{t("settings.exportBackup")}</Text>
+          </>
         )}
       </Pressable>
       <Pressable
@@ -572,7 +626,10 @@ function BackupSection() {
         {busy === "restore" ? (
           <ActivityIndicator color={colors.primary} />
         ) : (
-          <Text style={styles.dangerButtonText}>{t("settings.restore")}</Text>
+          <>
+            <Ionicons name="time-outline" size={18} color={colors.danger} />
+            <Text style={styles.dangerButtonText}>{t("settings.restore")}</Text>
+          </>
         )}
       </Pressable>
     </View>
@@ -583,9 +640,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+    <View style={styles.sectionWrapper}>
+      <Text style={styles.sectionCaption}>{title.toUpperCase()}</Text>
+      <View style={styles.section}>{children}</View>
     </View>
   );
 }
@@ -617,18 +674,74 @@ const makeStyles = (colors: AppColors) =>
       padding: theme.spacing.md,
       paddingBottom: theme.spacing.xl,
     },
+    screenTitle: {
+      ...theme.typography.title,
+      color: colors.textPrimary,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionWrapper: {
+      marginBottom: theme.spacing.lg,
+    },
+    sectionCaption: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+      marginBottom: theme.spacing.sm,
+    },
     section: {
-      backgroundColor: colors.surface,
-      borderRadius: theme.radius.md,
+      backgroundColor: colors.background,
+      borderRadius: theme.radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
       padding: theme.spacing.md,
-      marginBottom: theme.spacing.md,
     },
-    sectionTitle: {
+    profilePreviewRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: theme.spacing.md,
+      paddingBottom: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    profilePreviewInfo: {
+      flex: 1,
+      marginStart: theme.spacing.md,
+    },
+    profilePreviewName: {
       ...theme.typography.heading,
       color: colors.textPrimary,
-      marginBottom: theme.spacing.md,
+    },
+    profilePreviewHint: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    currencyChipRow: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+    },
+    currencyChip: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    currencyChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    currencyChipText: {
+      ...theme.typography.body,
+      color: colors.textPrimary,
+      fontWeight: "600",
+    },
+    currencyChipTextActive: {
+      color: colors.onPrimary,
     },
     field: {
       marginBottom: theme.spacing.md,
@@ -685,6 +798,8 @@ const makeStyles = (colors: AppColors) =>
     },
     secondaryButton: {
       flex: 1,
+      flexDirection: "row",
+      gap: theme.spacing.xs,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
       borderWidth: 1,
@@ -705,7 +820,7 @@ const makeStyles = (colors: AppColors) =>
     switchRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
+      gap: theme.spacing.sm,
       paddingVertical: theme.spacing.sm,
     },
     biometricRow: {
@@ -715,6 +830,5 @@ const makeStyles = (colors: AppColors) =>
       ...theme.typography.body,
       color: colors.textPrimary,
       flex: 1,
-      marginEnd: theme.spacing.sm,
     },
   });

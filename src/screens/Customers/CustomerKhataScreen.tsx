@@ -15,10 +15,14 @@ import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import type { ActionSheetOption } from "../../components/ActionSheet";
+import { ActionSheet } from "../../components/ActionSheet";
+import { Avatar } from "../../components/Avatar";
 import { db } from "../../db/client";
 import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
 import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
+import { getInitials } from "../../lib/textFormat";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { computeBalanceFromEntries } from "../../repositories/balance";
 import { getCustomer } from "../../repositories/customerRepository";
@@ -28,6 +32,7 @@ import { listEntriesForCustomer } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { Customer } from "../../types/models";
 import type { AppColors } from "../../theme/colors";
+import { withAlpha } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
@@ -54,6 +59,8 @@ export function CustomerKhataScreen() {
   const [statementRangeExpanded, setStatementRangeExpanded] = useState(false);
   const [statementDateFrom, setStatementDateFrom] = useState("");
   const [statementDateTo, setStatementDateTo] = useState("");
+  const [newEntrySheetVisible, setNewEntrySheetVisible] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,33 +91,20 @@ export function CustomerKhataScreen() {
     }, [load]),
   );
 
-  async function handleShareStatement() {
+  async function handleShareStatement(method: "whatsapp" | "sms" | "pdf") {
     try {
       const dateFrom = isValidDate(statementDateFrom) ? statementDateFrom : undefined;
       const dateTo = isValidDate(statementDateTo) ? statementDateTo : undefined;
       const data = await getStatementDocumentData(db, customerId, { dateFrom, dateTo });
       if (!data) return;
-      const message = buildStatementText(data);
-      Alert.alert(t("share.statementTitle"), undefined, [
-        {
-          text: t("share.whatsapp"),
-          onPress: () => shareViaWhatsApp(message, data.customer.phone),
-        },
-        { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
-        {
-          text: t("share.pdf"),
-          onPress: async () => {
-            try {
-              const shared = await sharePdf(buildStatementHtml(data), t("share.statementTitle"));
-              if (!shared) Alert.alert(t("share.unavailable"));
-            } catch (error) {
-              console.error(error);
-              Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
-            }
-          },
-        },
-        { text: t("customerForm.cancel"), style: "cancel" },
-      ]);
+      if (method === "whatsapp") {
+        shareViaWhatsApp(buildStatementText(data), data.customer.phone);
+      } else if (method === "sms") {
+        shareViaSms(buildStatementText(data), data.customer.phone);
+      } else {
+        const shared = await sharePdf(buildStatementHtml(data), t("share.statementTitle"));
+        if (!shared) Alert.alert(t("share.unavailable"));
+      }
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
@@ -118,37 +112,46 @@ export function CustomerKhataScreen() {
   }
 
   useEffect(() => {
+    if (!customer) return;
     navigation.setOptions({
-      title: customer?.name ?? t("app.name"),
+      headerStyle: { backgroundColor: colors.primary },
+      headerTintColor: colors.onPrimary,
+      headerShadowVisible: false,
+      headerTitle: () => (
+        <View style={styles.headerTitleRow}>
+          <Avatar
+            label={getInitials(customer.name)}
+            size={32}
+            backgroundColor={colors.onPrimary}
+            color={colors.primary}
+          />
+          <View style={styles.headerTitleInfo}>
+            <Text style={styles.headerTitleName} numberOfLines={1}>
+              {customer.name}
+            </Text>
+            {customer.phone ? (
+              <Text style={styles.headerTitlePhone} numberOfLines={1}>
+                {customer.phone}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      ),
       headerRight: () => (
         <Pressable
-          onPress={handleShareStatement}
+          onPress={() => setShareSheetVisible(true)}
           accessibilityLabel={t("khata.shareStatement")}
           accessibilityRole="button"
           style={styles.headerButton}
         >
-          <Ionicons name="share-social-outline" size={22} color={colors.primary} />
+          <Ionicons name="share-social-outline" size={22} color={colors.onPrimary} />
         </Pressable>
       ),
     });
-    // handleShareStatement reads fresh from the db each call, but closes over the statement date
-    // range state, so it must be in this dependency array or the header button would call a stale
-    // closure whenever the date fields change without customer/t/colors also changing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, customer, t, colors, statementDateFrom, statementDateTo]);
+  }, [navigation, customer, t, colors, styles]);
 
   function handleNewEntry() {
-    Alert.alert(t("khata.newEntry"), undefined, [
-      { text: t("customerForm.cancel"), style: "cancel" },
-      {
-        text: t("entry.itemizedBill"),
-        onPress: () => navigation.navigate("EntryForm", { customerId, mode: "bill" }),
-      },
-      {
-        text: t("khata.simpleEntry"),
-        onPress: () => navigation.navigate("EntryForm", { customerId, mode: "simple" }),
-      },
-    ]);
+    setNewEntrySheetVisible(true);
   }
 
   if (loading || !customer) {
@@ -169,17 +172,85 @@ export function CustomerKhataScreen() {
   const balanceLabel =
     balance > 0 ? t("khata.theyOweYou") : balance < 0 ? t("khata.youOweThem") : t("khata.settled");
 
+  const newEntryOptions: ActionSheetOption[] = [
+    {
+      key: "simple",
+      icon: "reader-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: t("khata.simpleEntry"),
+      description: t("khata.simpleEntryHint"),
+      onPress: () => navigation.navigate("EntryForm", { customerId, mode: "simple" }),
+    },
+    {
+      key: "bill",
+      icon: "pricetag",
+      iconBackgroundColor: colors.primary,
+      iconColor: colors.accent,
+      label: t("entry.itemizedBill"),
+      description: t("khata.itemizedBillHint"),
+      onPress: () => navigation.navigate("EntryForm", { customerId, mode: "bill" }),
+    },
+  ];
+
+  const shareOptions: ActionSheetOption[] = [
+    {
+      key: "whatsapp",
+      icon: "logo-whatsapp",
+      iconBackgroundColor: colors.iOwe,
+      iconColor: colors.onPrimary,
+      label: t("share.whatsapp"),
+      description: t("share.whatsappHint"),
+      onPress: () => handleShareStatement("whatsapp"),
+    },
+    {
+      key: "sms",
+      icon: "chatbubble-ellipses-outline",
+      iconBackgroundColor: colors.primary,
+      iconColor: colors.onPrimary,
+      label: t("share.sms"),
+      description: t("share.smsHint"),
+      onPress: () => handleShareStatement("sms"),
+    },
+    {
+      key: "pdf",
+      icon: "document-text",
+      iconBackgroundColor: colors.owesMe,
+      iconColor: colors.onPrimary,
+      label: t("share.pdf"),
+      description: t("share.pdfHint"),
+      onPress: () => handleShareStatement("pdf"),
+    },
+  ];
+
   return (
     <View style={styles.container}>
-      <View style={styles.balanceHeader}>
-        <Text style={styles.balanceLabel}>{balanceLabel}</Text>
-        <Text
-          style={[styles.balanceAmount, { color: balanceColor }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
+      <View style={styles.navyBlock}>
+        <View
+          style={[
+            styles.balanceBanner,
+            {
+              backgroundColor: withAlpha(balanceColor, 0.22),
+              borderColor: withAlpha(balanceColor, 0.5),
+            },
+          ]}
         >
-          {formatMoney(Math.abs(balance), currencySymbol)}
-        </Text>
+          <View style={styles.balanceBannerInfo}>
+            <Text style={styles.balanceLabel}>{balanceLabel}</Text>
+            <Text
+              style={[styles.balanceAmount, { color: colors.onPrimary }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {formatMoney(Math.abs(balance), currencySymbol)}
+            </Text>
+          </View>
+          <Ionicons
+            name={balance >= 0 ? "arrow-down-outline" : "arrow-up-outline"}
+            size={22}
+            color={balanceColor}
+          />
+        </View>
       </View>
 
       <Pressable
@@ -187,7 +258,13 @@ export function CustomerKhataScreen() {
         accessibilityRole="button"
         onPress={() => setStatementRangeExpanded((current) => !current)}
       >
+        <Ionicons name="calendar-outline" size={18} color={colors.primary} />
         <Text style={styles.statementRangeToggleText}>{t("khata.filterStatementByDate")}</Text>
+        <Ionicons
+          name={statementRangeExpanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={colors.textSecondary}
+        />
       </Pressable>
       {!statementRangeExpanded &&
       (isValidDate(statementDateFrom) || isValidDate(statementDateTo)) ? (
@@ -269,13 +346,39 @@ export function CustomerKhataScreen() {
       )}
 
       <Pressable
-        style={styles.fab}
+        style={styles.newEntryButton}
         accessibilityLabel={t("khata.newEntry")}
         accessibilityRole="button"
         onPress={handleNewEntry}
       >
-        <Ionicons name="add" size={28} color={colors.onPrimary} />
+        <Ionicons name="add" size={20} color={colors.onPrimary} />
+        <Text style={styles.newEntryButtonText}>{t("khata.newEntry")}</Text>
       </Pressable>
+
+      <ActionSheet
+        visible={newEntrySheetVisible}
+        onClose={() => setNewEntrySheetVisible(false)}
+        title={t("khata.newEntryFor", { name: customer.name })}
+        subtitle={<Text style={styles.sheetSubtitle}>{t("khata.newEntryPrompt")}</Text>}
+        options={newEntryOptions}
+      />
+
+      <ActionSheet
+        visible={shareSheetVisible}
+        onClose={() => setShareSheetVisible(false)}
+        title={t("share.statementTitle")}
+        subtitle={
+          <Text style={styles.sheetSubtitle}>
+            {customer.name} ·{" "}
+            <Text style={{ color: balanceColor, fontWeight: "700" }}>
+              {formatMoney(Math.abs(balance), currencySymbol)}
+            </Text>{" "}
+            {balanceLabel}
+          </Text>
+        }
+        options={shareOptions}
+        cancelLabel={t("customerForm.cancel")}
+      />
     </View>
   );
 }
@@ -293,24 +396,29 @@ function EntryRow({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const isCashOut = entry.direction === "cash_out";
-  const color = isCashOut ? colors.owesMe : colors.iOwe;
+  const color = entry.isDeleted ? colors.textSecondary : isCashOut ? colors.owesMe : colors.iOwe;
+  const softBackground = entry.isDeleted
+    ? colors.surface
+    : isCashOut
+      ? colors.owesMeSoft
+      : colors.iOweSoft;
   const sign = isCashOut ? "+" : "-";
   const isBill = entry.type === "bill";
+  const icon = entry.isDeleted
+    ? "trash-outline"
+    : isBill
+      ? "receipt-outline"
+      : isCashOut
+        ? "arrow-down-outline"
+        : "arrow-up-outline";
 
   return (
-    <Pressable
-      style={[styles.row, entry.isDeleted && styles.rowDeleted]}
-      onPress={onPress}
-      accessibilityRole="button"
-    >
-      <Ionicons
-        name={isBill ? "receipt-outline" : isCashOut ? "arrow-up-circle" : "arrow-down-circle"}
-        size={28}
-        color={color}
-        style={styles.rowIcon}
-      />
+    <Pressable style={styles.row} onPress={onPress} accessibilityRole="button">
+      <View style={[styles.rowIconBox, { backgroundColor: softBackground }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
       <View style={styles.rowInfo}>
-        <Text style={styles.rowLabel}>
+        <Text style={[styles.rowLabel, entry.isDeleted && styles.strikethrough]}>
           {isBill
             ? t("entry.itemsCount", { count: entry.lineItems.length })
             : isCashOut
@@ -327,7 +435,10 @@ function EntryRow({
           </Text>
         ) : null}
       </View>
-      <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
+      <Text
+        style={[styles.rowAmount, { color }, entry.isDeleted && styles.strikethrough]}
+        numberOfLines={1}
+      >
         {sign}
         {formatMoney(entry.amount, currencySymbol)}
       </Text>
@@ -350,17 +461,40 @@ const makeStyles = (colors: AppColors) =>
   headerButton: {
     paddingHorizontal: theme.spacing.sm,
   },
-  balanceHeader: {
+  headerTitleRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  },
+  headerTitleInfo: {
+    marginStart: theme.spacing.sm,
+  },
+  headerTitleName: {
+    ...theme.typography.heading,
+    color: colors.onPrimary,
+  },
+  headerTitlePhone: {
+    ...theme.typography.caption,
+    color: colors.primaryMuted,
+  },
+  navyBlock: {
+    backgroundColor: colors.primary,
+    padding: theme.spacing.md,
+  },
+  balanceBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+  },
+  balanceBannerInfo: {
+    flex: 1,
+    marginEnd: theme.spacing.sm,
   },
   balanceLabel: {
     ...theme.typography.body,
-    color: colors.textSecondary,
+    color: colors.primaryMuted,
     marginBottom: theme.spacing.xs,
   },
   balanceAmount: {
@@ -377,13 +511,19 @@ const makeStyles = (colors: AppColors) =>
     fontWeight: "600",
   },
   statementRangeToggle: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   statementRangeToggleText: {
-    ...theme.typography.caption,
+    ...theme.typography.body,
     color: colors.primary,
     fontWeight: "600",
+    flex: 1,
   },
   statementRangeSummary: {
     ...theme.typography.caption,
@@ -436,15 +576,17 @@ const makeStyles = (colors: AppColors) =>
   row: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: theme.spacing.md,
+  },
+  rowIconBox: {
+    width: 44,
+    height: 44,
     borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  rowDeleted: {
-    opacity: 0.55,
-  },
-  rowIcon: {
+    alignItems: "center",
+    justifyContent: "center",
     marginEnd: theme.spacing.sm,
   },
   rowInfo: {
@@ -469,6 +611,9 @@ const makeStyles = (colors: AppColors) =>
   rowAmount: {
     ...theme.typography.money,
   },
+  strikethrough: {
+    textDecorationLine: "line-through",
+  },
   emptyContainer: {
     flex: 1,
     alignItems: "center",
@@ -480,16 +625,23 @@ const makeStyles = (colors: AppColors) =>
     color: colors.textSecondary,
     textAlign: "center",
   },
-  fab: {
-    position: "absolute",
-    end: theme.spacing.lg,
-    bottom: theme.spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: theme.radius.pill,
-    backgroundColor: colors.primary,
+  newEntryButton: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    elevation: 4,
+    gap: theme.spacing.sm,
+    margin: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: colors.primary,
+  },
+  newEntryButtonText: {
+    ...theme.typography.body,
+    color: colors.onPrimary,
+    fontWeight: "700",
+  },
+  sheetSubtitle: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
   },
 });

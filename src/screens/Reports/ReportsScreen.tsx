@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import { StatCard } from "../../components/StatCard";
 import { db } from "../../db/client";
 import {
   buildEntriesCsv,
@@ -43,6 +44,7 @@ export function ReportsScreen() {
   const [busy, setBusy] = useState<"csv" | "excel" | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [rangeExpanded, setRangeExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,27 +137,72 @@ export function ReportsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>{t("reports.title")}</Text>
+
+      <Pressable
+        style={styles.rangeToggle}
+        accessibilityRole="button"
+        onPress={() => setRangeExpanded((current) => !current)}
+      >
+        <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+        <Text style={styles.rangeToggleText} numberOfLines={1}>
+          {isFiltering
+            ? t("reports.rangeSummary", {
+                from: isValidDate(dateFrom) ? dateFrom : "…",
+                to: isValidDate(dateTo) ? dateTo : "…",
+              })
+            : t("reports.dateRange")}
+        </Text>
+        <Ionicons
+          name={rangeExpanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={colors.textSecondary}
+        />
+      </Pressable>
+      {rangeExpanded ? (
+        <View style={styles.dateRow}>
+          <TextInput
+            value={dateFrom}
+            onChangeText={setDateFrom}
+            style={[styles.dateInput, styles.input]}
+            placeholder={`${t("reports.dateFrom")} (YYYY-MM-DD)`}
+            placeholderTextColor={colors.textSecondary}
+          />
+          <TextInput
+            value={dateTo}
+            onChangeText={setDateTo}
+            style={[styles.dateInput, styles.input]}
+            placeholder={`${t("reports.dateTo")} (YYYY-MM-DD)`}
+            placeholderTextColor={colors.textSecondary}
+          />
+          {isFiltering ? (
+            <Pressable
+              style={styles.clearButton}
+              accessibilityRole="button"
+              onPress={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
+            >
+              <Text style={styles.clearButtonText}>{t("reports.clearFilter")}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={styles.totalsRow}>
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>{t("home.totalReceivable")}</Text>
-          <Text
-            style={[styles.totalAmount, { color: colors.owesMe }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            {formatMoney(totals.totalReceivable, currency)}
-          </Text>
-        </View>
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>{t("home.totalPayable")}</Text>
-          <Text
-            style={[styles.totalAmount, { color: colors.iOwe }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            {formatMoney(totals.totalPayable, currency)}
-          </Text>
-        </View>
+        <StatCard
+          label={t("home.totalReceivable")}
+          amount={formatMoney(totals.totalReceivable, currency)}
+          color={colors.owesMe}
+          direction="receivable"
+        />
+        <StatCard
+          label={t("home.totalPayable")}
+          amount={formatMoney(totals.totalPayable, currency)}
+          color={colors.iOwe}
+          direction="payable"
+        />
       </View>
 
       <View style={styles.statsRow}>
@@ -163,53 +210,26 @@ export function ReportsScreen() {
         <Stat label={t("reports.entries")} value={String(filteredData.entries.length)} />
       </View>
 
-      <Text style={styles.sectionTitle}>{t("reports.dateRange")}</Text>
-      <View style={styles.dateRow}>
-        <TextInput
-          value={dateFrom}
-          onChangeText={setDateFrom}
-          style={[styles.dateInput, styles.input]}
-          placeholder={`${t("reports.dateFrom")} (YYYY-MM-DD)`}
-          placeholderTextColor={colors.textSecondary}
-        />
-        <TextInput
-          value={dateTo}
-          onChangeText={setDateTo}
-          style={[styles.dateInput, styles.input]}
-          placeholder={`${t("reports.dateTo")} (YYYY-MM-DD)`}
-          placeholderTextColor={colors.textSecondary}
-        />
-        {isFiltering ? (
-          <Pressable
-            style={styles.clearButton}
-            accessibilityRole="button"
-            onPress={() => {
-              setDateFrom("");
-              setDateTo("");
-            }}
-          >
-            <Text style={styles.clearButtonText}>{t("reports.clearFilter")}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
       <Text style={styles.sectionTitle}>{t("reports.export")}</Text>
       <Text style={styles.sectionHint}>{t("reports.exportHint")}</Text>
 
-      <ExportButton
-        icon="document-text-outline"
-        label={t("reports.exportCsv")}
-        onPress={handleExportCsv}
-        busy={busy === "csv"}
-        disabled={isFilteredEmpty || busy !== null}
-      />
-      <ExportButton
-        icon="grid-outline"
-        label={t("reports.exportExcel")}
-        onPress={handleExportExcel}
-        busy={busy === "excel"}
-        disabled={isFilteredEmpty || busy !== null}
-      />
+      <View style={styles.exportRow}>
+        <ExportButton
+          icon="document-text-outline"
+          label={t("reports.exportCsv")}
+          onPress={handleExportCsv}
+          busy={busy === "csv"}
+          disabled={isFilteredEmpty || busy !== null}
+        />
+        <ExportButton
+          icon="grid-outline"
+          label={t("reports.exportExcel")}
+          onPress={handleExportExcel}
+          busy={busy === "excel"}
+          disabled={isFilteredEmpty || busy !== null}
+          variant="filled"
+        />
+      </View>
 
       {isLedgerEmpty ? (
         <Text style={styles.emptyText}>{t("reports.empty")}</Text>
@@ -237,30 +257,39 @@ function ExportButton({
   onPress,
   busy,
   disabled,
+  variant = "outline",
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   busy: boolean;
   disabled: boolean;
+  variant?: "outline" | "filled";
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const isFilled = variant === "filled";
+  const contentColor = isFilled ? colors.onPrimary : colors.primary;
   return (
     <Pressable
-      style={[styles.exportButton, disabled && styles.exportButtonDisabled]}
+      style={[
+        styles.exportButton,
+        isFilled && styles.exportButtonFilled,
+        disabled && styles.exportButtonDisabled,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled}
     >
       {busy ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={contentColor} />
       ) : (
-        <Ionicons name={icon} size={22} color={colors.primary} />
+        <Ionicons name={icon} size={20} color={contentColor} />
       )}
-      <Text style={styles.exportButtonText}>{label}</Text>
-      <Ionicons name="share-outline" size={18} color={colors.textSecondary} />
+      <Text style={[styles.exportButtonText, { color: contentColor }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -280,24 +309,32 @@ const makeStyles = (colors: AppColors) =>
   content: {
     padding: theme.spacing.md,
   },
+  title: {
+    ...theme.typography.title,
+    color: colors.textPrimary,
+    marginBottom: theme.spacing.md,
+  },
+  rangeToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  rangeToggleText: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+  },
   totalsRow: {
     flexDirection: "row",
     gap: theme.spacing.sm,
     marginBottom: theme.spacing.md,
-  },
-  totalCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-  },
-  totalLabel: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  totalAmount: {
-    ...theme.typography.money,
   },
   statsRow: {
     flexDirection: "row",
@@ -364,25 +401,31 @@ const makeStyles = (colors: AppColors) =>
     color: colors.textPrimary,
     fontWeight: "600",
   },
+  exportRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
   exportButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.md,
-    backgroundColor: colors.surface,
+    justifyContent: "center",
+    gap: theme.spacing.sm,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.primary,
     borderRadius: theme.radius.md,
     padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+  },
+  exportButtonFilled: {
+    backgroundColor: colors.primary,
   },
   exportButtonDisabled: {
     opacity: 0.5,
   },
   exportButtonText: {
     ...theme.typography.body,
-    color: colors.textPrimary,
     fontWeight: "600",
-    flex: 1,
   },
   emptyText: {
     ...theme.typography.body,

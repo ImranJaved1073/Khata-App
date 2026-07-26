@@ -18,7 +18,7 @@ export function CustomersStack() {
       <Stack.Screen
         name="CustomerList"
         component={CustomerListScreen}
-        options={{ title: t("customers.title") }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CustomerForm"

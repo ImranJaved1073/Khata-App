@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
@@ -86,7 +87,14 @@ export function EntryHistoryScreen() {
       {auditRows.length === 0 ? (
         <Text style={styles.emptyText}>{t("entry.historyEmpty")}</Text>
       ) : (
-        auditRows.map((row) => <AuditRow key={row.id} row={row} currencySymbol={currencySymbol} />)
+        auditRows.map((row, index) => (
+          <AuditRow
+            key={row.id}
+            row={row}
+            currencySymbol={currencySymbol}
+            isLast={index === auditRows.length - 1}
+          />
+        ))
       )}
     </ScrollView>
   );
@@ -95,9 +103,11 @@ export function EntryHistoryScreen() {
 function AuditRow({
   row,
   currencySymbol,
+  isLast,
 }: {
   row: AuditLogEntry;
   currencySymbol: string;
+  isLast: boolean;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -107,7 +117,9 @@ function AuditRow({
       ? colors.success
       : row.action === "delete"
         ? colors.danger
-        : colors.primary;
+        : colors.accent;
+  const actionIcon =
+    row.action === "create" ? "add" : row.action === "delete" ? "trash" : "pencil";
   const actionLabel =
     row.action === "create"
       ? t("entry.historyCreated")
@@ -118,26 +130,31 @@ function AuditRow({
 
   return (
     <View style={styles.row}>
-      <View style={styles.rowHeader}>
-        <View style={[styles.badge, { backgroundColor: actionColor }]}>
-          <Text style={styles.badgeText}>{actionLabel}</Text>
+      <View style={styles.timelineColumn}>
+        <View style={[styles.timelineDot, { backgroundColor: actionColor }]}>
+          <Ionicons name={actionIcon} size={16} color={colors.onPrimary} />
         </View>
-        <Text style={styles.rowEntity}>{entityLabel}</Text>
+        {!isLast ? <View style={styles.timelineLine} /> : null}
       </View>
-      <Text style={styles.rowDate}>
-        {new Date(row.createdAt).toLocaleString()} ·{" "}
-        {t(row.actor === "helper" ? "entry.historyActorHelper" : "entry.historyActorOwner")}
-      </Text>
-      {row.diff ? (
-        <View style={styles.diffBox}>
-          {Object.entries(row.diff).map(([field, change]) => (
-            <Text key={field} style={styles.diffLine}>
-              {field}: {formatDiffValue(field, change.old, currencySymbol)} →{" "}
-              {formatDiffValue(field, change.new, currencySymbol)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
+      <View style={styles.rowContent}>
+        <Text style={styles.rowTitle}>
+          {actionLabel} {entityLabel}
+        </Text>
+        <Text style={styles.rowDate}>
+          {new Date(row.createdAt).toLocaleString()} ·{" "}
+          {t(row.actor === "helper" ? "entry.historyActorHelper" : "entry.historyActorOwner")}
+        </Text>
+        {row.diff ? (
+          <View style={styles.diffBox}>
+            {Object.entries(row.diff).map(([field, change]) => (
+              <Text key={field} style={styles.diffLine}>
+                {field}: {formatDiffValue(field, change.old, currencySymbol)} →{" "}
+                {formatDiffValue(field, change.new, currencySymbol)}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -164,32 +181,33 @@ const makeStyles = (colors: AppColors) =>
     marginTop: theme.spacing.lg,
   },
   row: {
-    backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  rowHeader: {
     flexDirection: "row",
+  },
+  timelineColumn: {
     alignItems: "center",
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
+    marginEnd: theme.spacing.md,
   },
-  badge: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
+  timelineDot: {
+    width: 36,
+    height: 36,
     borderRadius: theme.radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  badgeText: {
-    ...theme.typography.caption,
-    color: colors.onPrimary,
-    fontWeight: "600",
+  timelineLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: colors.border,
+    marginVertical: theme.spacing.xs,
   },
-  rowEntity: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
+  rowContent: {
+    flex: 1,
+    paddingBottom: theme.spacing.lg,
+  },
+  rowTitle: {
+    ...theme.typography.heading,
+    color: colors.textPrimary,
+    marginBottom: 2,
   },
   rowDate: {
     ...theme.typography.caption,
@@ -197,7 +215,11 @@ const makeStyles = (colors: AppColors) =>
     marginBottom: theme.spacing.xs,
   },
   diffBox: {
-    marginTop: theme.spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: theme.spacing.md,
     gap: 2,
   },
   diffLine: {
