@@ -10,7 +10,8 @@
     "today": "آج، {{time}}",
     "yesterday": "گزشتہ کل",
     "daysAgo_one": "{{count}} دن پہلے",
-    "daysAgo_other": "{{count}} دن پہلے"
+    "daysAgo_other": "{{count}} دن پہلے",
+    "close": "بند کریں"
   },
   "nav": {
     "home": "ہوم",
@@ -101,7 +102,15 @@
     "filterStatementByDate": "تاریخ کے حساب سے اسٹیٹمنٹ فلٹر کریں",
     "statementDateFrom": "سے",
     "statementDateTo": "تک",
-    "statementRangeSummary": "اسٹیٹمنٹ کی مدت: {{from}} – {{to}}"
+    "statementRangeSummary": "اسٹیٹمنٹ کی مدت: {{from}} – {{to}}",
+    "balanceOwesYou": "گاہک آپ کا مقروض ہے",
+    "balanceYouOwe": "آپ گاہک کے مقروض ہیں",
+    "balanceZero": "بیلنس",
+    "openingBalance": "ابتدائی بیلنس",
+    "cashPayment": "نقد ادائیگی",
+    "emptyTitle": "ابھی کوئی اندراج نہیں",
+    "emptyDescription": "{{name}} کا کھاتہ شروع کرنے کے لیے پہلا بل یا نقد اندراج ریکارڈ کریں۔",
+    "addFirstEntry": "پہلا اندراج شامل کریں"
   },
   "entry": {
     "gaveOnCredit": "ادھار دیا (نقد باہر)",
@@ -158,7 +167,28 @@
     "tableQty": "تعداد",
     "tableAmount": "رقم",
     "attachedReceipt": "منسلک رسید",
-    "tapToView": "دیکھنے کے لیے تھپتھپائیں"
+    "tapToView": "دیکھنے کے لیے تھپتھپائیں",
+    "simpleEntryTitle": "سادہ اندراج",
+    "saveEntry": "اندراج محفوظ کریں",
+    "calcClear": "صاف کریں",
+    "calcBackspace": "آخری ہندسہ حذف کریں",
+    "calcPercent": "فیصد",
+    "calcPoint": "اعشاریہ",
+    "calcEquals": "مساوی",
+    "autoFromAllItems": "تمام اشیاء سے خودکار",
+    "autoDescriptionCaption": "خودکار: \"{{description}}\" · ترمیم کے لیے تھپتھپائیں",
+    "billSavedTitle": "بل محفوظ ہوگیا",
+    "addedToKhata": "{{name}} کے کھاتے میں شامل کر دیا گیا",
+    "saved": "محفوظ شدہ",
+    "billTotalLabel": "اس بل کی کل رقم",
+    "previousBalance": "پچھلا بیلنس",
+    "newBalance": "نیا بیلنس",
+    "viewKhata": "کھاتہ دیکھیں",
+    "shareThisBill": "یہ بل شیئر کریں",
+    "billDetailTitle": "بل کی تفصیل",
+    "simpleDetailTitle": "اندراج کی تفصیل",
+    "billRowLabel": "بل · {{summary}}",
+    "itemized": "تفصیلی"
   },
   "share": {
     "whatsapp": "واٹس ایپ",
@@ -186,7 +216,11 @@
     "dateFrom": "سے",
     "dateTo": "تک",
     "clearFilter": "صاف کریں",
-    "noEntriesInRange": "اس تاریخ کی حد میں کوئی انٹری نہیں۔"
+    "noEntriesInRange": "اس تاریخ کی حد میں کوئی انٹری نہیں۔",
+    "chartTitle": "وصولی بمقابلہ موصولہ",
+    "chartNewReceivable": "نئی وصولی",
+    "chartCollected": "موصولہ",
+    "chartEmpty": "چارٹ کے لیے ابھی کافی حالیہ سرگرمی نہیں ہے۔"
   },
   "settings": {
     "title": "ترتیبات",
@@ -220,7 +254,13 @@
     "restoreSuccessMessage": "بحال شدہ ڈیٹا دیکھنے کے لیے ایپ کو دوبارہ شروع کریں۔",
     "saved": "محفوظ ہو گیا",
     "restartTitle": "دوبارہ شروع کرنا ضروری ہے",
-    "restartForLanguage": "اردو لے آؤٹ لاگو کرنے کے لیے ایپ کو دوبارہ شروع کریں۔"
+    "restartForLanguage": "اردو لے آؤٹ لاگو کرنے کے لیے ایپ کو دوبارہ شروع کریں۔",
+    "theme": "تھیم",
+    "appearanceLanguage": "ظاہری شکل اور زبان",
+    "restartForLanguageShort": "لاگو کرنے کے لیے دوبارہ شروع کرنا ضروری ہے",
+    "securityBackup": "سیکیورٹی اور بیک اپ",
+    "biometricNeedsPin": "اسے فعال کرنے کے لیے پہلے PIN مقرر کریں",
+    "biometricUnavailable": "اس ڈیوائس پر دستیاب نہیں"
   },
   "lock": {
     "enterPin": "پن درج کریں",

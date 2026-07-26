@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -72,6 +72,13 @@ export function EntryDetailScreen() {
       load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!entry) return;
+    navigation.setOptions({
+      title: entry.type === "bill" ? t("entry.billDetailTitle") : t("entry.simpleDetailTitle"),
+    });
+  }, [navigation, entry, t]);
 
   async function handleShare(method: "whatsapp" | "sms" | "pdf") {
     if (!entry) return;
@@ -158,7 +165,8 @@ export function EntryDetailScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <View style={styles.headerInfo}>
           {customer ? (
@@ -218,10 +226,11 @@ export function EntryDetailScreen() {
           </View>
         </View>
       ) : null}
+    </ScrollView>
 
-      <View style={styles.actionsRow}>
+    <View style={styles.actionsRow}>
         <ActionButton
-          icon="share-social-outline"
+          icon="share-outline"
           label={t("entry.share")}
           onPress={() => setShareSheetVisible(true)}
         />
@@ -257,7 +266,7 @@ export function EntryDetailScreen() {
         options={shareOptions}
         cancelLabel={t("customerForm.cancel")}
       />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -488,9 +497,11 @@ const makeStyles = (colors: AppColors) =>
   },
   actionsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   actionButton: {
     flex: 1,

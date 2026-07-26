@@ -29,7 +29,8 @@
       "expo-localization",
       "expo-font",
       "expo-image-picker",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

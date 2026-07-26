@@ -10,7 +10,8 @@
     "today": "Today, {{time}}",
     "yesterday": "Yesterday",
     "daysAgo_one": "{{count}} day ago",
-    "daysAgo_other": "{{count}} days ago"
+    "daysAgo_other": "{{count}} days ago",
+    "close": "Close"
   },
   "nav": {
     "home": "Home",
@@ -101,7 +102,15 @@
     "filterStatementByDate": "Filter statement by date",
     "statementDateFrom": "From",
     "statementDateTo": "To",
-    "statementRangeSummary": "Statement range: {{from}} – {{to}}"
+    "statementRangeSummary": "Statement range: {{from}} – {{to}}",
+    "balanceOwesYou": "Customer owes you",
+    "balanceYouOwe": "You owe customer",
+    "balanceZero": "Balance",
+    "openingBalance": "Opening balance",
+    "cashPayment": "Cash payment",
+    "emptyTitle": "No entries yet",
+    "emptyDescription": "Record the first bill or cash entry for {{name}} to start this khata.",
+    "addFirstEntry": "Add first entry"
   },
   "entry": {
     "gaveOnCredit": "Gave on credit (cash out)",
@@ -158,7 +167,28 @@
     "tableQty": "Qty",
     "tableAmount": "Amount",
     "attachedReceipt": "Attached receipt",
-    "tapToView": "Tap to view"
+    "tapToView": "Tap to view",
+    "simpleEntryTitle": "Simple entry",
+    "saveEntry": "Save entry",
+    "calcClear": "Clear",
+    "calcBackspace": "Delete last digit",
+    "calcPercent": "Percent",
+    "calcPoint": "Decimal point",
+    "calcEquals": "Equals",
+    "autoFromAllItems": "Auto from all items",
+    "autoDescriptionCaption": "Auto: \"{{description}}\" · tap to edit",
+    "billSavedTitle": "Bill saved",
+    "addedToKhata": "Added to {{name}}'s khata",
+    "saved": "Saved",
+    "billTotalLabel": "This bill total",
+    "previousBalance": "Previous balance",
+    "newBalance": "New balance",
+    "viewKhata": "View khata",
+    "shareThisBill": "Share this bill",
+    "billDetailTitle": "Bill detail",
+    "simpleDetailTitle": "Entry detail",
+    "billRowLabel": "Bill · {{summary}}",
+    "itemized": "itemized"
   },
   "share": {
     "whatsapp": "WhatsApp",
@@ -186,7 +216,11 @@
     "dateFrom": "From",
     "dateTo": "To",
     "clearFilter": "Clear",
-    "noEntriesInRange": "No entries in this date range."
+    "noEntriesInRange": "No entries in this date range.",
+    "chartTitle": "Receivable vs collected",
+    "chartNewReceivable": "New receivable",
+    "chartCollected": "Collected",
+    "chartEmpty": "Not enough recent activity to chart yet."
   },
   "settings": {
     "title": "Settings",
@@ -220,7 +254,13 @@
     "restoreSuccessMessage": "Restart the app to see the restored data.",
     "saved": "Saved",
     "restartTitle": "Restart needed",
-    "restartForLanguage": "Restart the app to apply the Urdu layout."
+    "restartForLanguage": "Restart the app to apply the Urdu layout.",
+    "theme": "Theme",
+    "appearanceLanguage": "Appearance & language",
+    "restartForLanguageShort": "Restart required to apply",
+    "securityBackup": "Security & backup",
+    "biometricNeedsPin": "Set a PIN first to enable this",
+    "biometricUnavailable": "Not available on this device"
   },
   "lock": {
     "enterPin": "Enter PIN",

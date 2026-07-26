@@ -9,6 +9,7 @@ export type CustomersStackParamList = {
   CustomerForm: { customerId?: string; initialName?: string } | undefined;
   CustomerKhata: { customerId: string };
   EntryForm: { customerId: string; entryId?: string; mode: "simple" | "bill" };
+  BillSaved: { entryId: string };
   EntryDetail: { entryId: string };
   EntryHistory: { entryId: string };
 };

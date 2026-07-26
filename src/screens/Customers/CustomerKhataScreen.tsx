@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,7 +17,9 @@ import { useTranslation } from "react-i18next";
 import type { ActionSheetOption } from "../../components/ActionSheet";
 import { ActionSheet } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
+import { DateField } from "../../components/DateField";
 import { db } from "../../db/client";
+import { formatRelativeDate } from "../../lib/dateFormat";
 import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
 import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
@@ -41,6 +42,23 @@ type Route = RouteProp<CustomersStackParamList, "CustomerKhata">;
 
 function isValidDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatSectionTitle(dateString: string): string {
+  return new Date(`${dateString}T00:00:00`)
+    .toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
+    .toUpperCase();
+}
+
+function formatShortDate(dateString: string): string {
+  return new Date(`${dateString}T00:00:00`).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 export function CustomerKhataScreen() {
@@ -84,6 +102,18 @@ export function CustomerKhataScreen() {
   const entries = useMemo(() => allEntries.filter((entry) => !entry.isDeleted), [allEntries]);
   const deletedCount = allEntries.length - entries.length;
   const visibleEntries = showDeleted ? allEntries : entries;
+
+  const sections = useMemo(() => {
+    const map = new Map<string, EntryWithLineItems[]>();
+    for (const entry of visibleEntries) {
+      const list = map.get(entry.entryDate) ?? [];
+      list.push(entry);
+      map.set(entry.entryDate, list);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([date, data]) => ({ title: formatSectionTitle(date), data }));
+  }, [visibleEntries]);
 
   useFocusEffect(
     useCallback(() => {
@@ -170,7 +200,14 @@ export function CustomerKhataScreen() {
         ? colors.iOwe
         : colors.neutralBalance;
   const balanceLabel =
-    balance > 0 ? t("khata.theyOweYou") : balance < 0 ? t("khata.youOweThem") : t("khata.settled");
+    balance > 0
+      ? t("khata.balanceOwesYou")
+      : balance < 0
+        ? t("khata.balanceYouOwe")
+        : t("khata.balanceZero");
+
+  const showOpeningBalanceRow = customer.openingBalance !== 0;
+  const isTrulyEmpty = visibleEntries.length === 0 && !showOpeningBalanceRow;
 
   const newEntryOptions: ActionSheetOption[] = [
     {
@@ -277,19 +314,17 @@ export function CustomerKhataScreen() {
       ) : null}
       {statementRangeExpanded ? (
         <View style={styles.statementRangeRow}>
-          <TextInput
-            value={statementDateFrom}
-            onChangeText={setStatementDateFrom}
-            style={[styles.statementDateInput, styles.statementInput]}
-            placeholder={`${t("khata.statementDateFrom")} (YYYY-MM-DD)`}
-            placeholderTextColor={colors.textSecondary}
+          <DateField
+            value={statementDateFrom || todayIso()}
+            onChange={setStatementDateFrom}
+            label={t("khata.statementDateFrom")}
+            style={styles.statementDateField}
           />
-          <TextInput
-            value={statementDateTo}
-            onChangeText={setStatementDateTo}
-            style={[styles.statementDateInput, styles.statementInput]}
-            placeholder={`${t("khata.statementDateTo")} (YYYY-MM-DD)`}
-            placeholderTextColor={colors.textSecondary}
+          <DateField
+            value={statementDateTo || todayIso()}
+            onChange={setStatementDateTo}
+            label={t("khata.statementDateTo")}
+            style={styles.statementDateField}
           />
           {statementDateFrom || statementDateTo ? (
             <Pressable
@@ -307,6 +342,48 @@ export function CustomerKhataScreen() {
         </View>
       ) : null}
 
+      {isTrulyEmpty ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconBox}>
+            <Ionicons name="receipt-outline" size={40} color={colors.primaryMuted} />
+          </View>
+          <Text style={styles.emptyTitle}>{t("khata.emptyTitle")}</Text>
+          <Text style={styles.emptyText}>
+            {t("khata.emptyDescription", { name: customer.name })}
+          </Text>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          renderSectionHeader={({ section }) => (
+            <Text style={styles.sectionHeader}>{section.title}</Text>
+          )}
+          renderItem={({ item }) => (
+            <EntryRow
+              entry={item}
+              currencySymbol={currencySymbol}
+              onPress={() =>
+                item.isDeleted
+                  ? navigation.navigate("EntryHistory", { entryId: item.id })
+                  : navigation.navigate("EntryDetail", { entryId: item.id })
+              }
+            />
+          )}
+          ListFooterComponent={
+            showOpeningBalanceRow ? (
+              <OpeningBalanceRow
+                amount={customer.openingBalance}
+                date={customer.createdAt.slice(0, 10)}
+                currencySymbol={currencySymbol}
+              />
+            ) : null
+          }
+        />
+      )}
+
       {deletedCount > 0 ? (
         <Pressable
           style={styles.deletedToggle}
@@ -320,39 +397,17 @@ export function CustomerKhataScreen() {
           </Text>
         </Pressable>
       ) : null}
-
-      {visibleEntries.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t("khata.empty")}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={visibleEntries}
-          keyExtractor={(item) => item.id}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <EntryRow
-              entry={item}
-              currencySymbol={currencySymbol}
-              onPress={() =>
-                item.isDeleted
-                  ? navigation.navigate("EntryHistory", { entryId: item.id })
-                  : navigation.navigate("EntryDetail", { entryId: item.id })
-              }
-            />
-          )}
-        />
-      )}
-
+      
       <Pressable
         style={styles.newEntryButton}
-        accessibilityLabel={t("khata.newEntry")}
+        accessibilityLabel={isTrulyEmpty ? t("khata.addFirstEntry") : t("khata.newEntry")}
         accessibilityRole="button"
         onPress={handleNewEntry}
       >
         <Ionicons name="add" size={20} color={colors.onPrimary} />
-        <Text style={styles.newEntryButtonText}>{t("khata.newEntry")}</Text>
+        <Text style={styles.newEntryButtonText}>
+          {isTrulyEmpty ? t("khata.addFirstEntry") : t("khata.newEntry")}
+        </Text>
       </Pressable>
 
       <ActionSheet
@@ -406,11 +461,19 @@ function EntryRow({
   const isBill = entry.type === "bill";
   const icon = entry.isDeleted
     ? "trash-outline"
-    : isBill
-      ? "receipt-outline"
-      : isCashOut
-        ? "arrow-down-outline"
-        : "arrow-up-outline";
+    : isCashOut
+      ? "arrow-down-outline"
+      : "arrow-up-outline";
+  const relative = formatRelativeDate(entry.createdAt);
+  const dateLabel =
+    relative.kind === "today"
+      ? relative.time
+      : relative.kind === "yesterday"
+        ? t("common.yesterday")
+        : relative.kind === "daysAgo"
+          ? t("common.daysAgo", { count: relative.count })
+          : formatShortDate(entry.entryDate);
+  const suffix = isBill ? t("entry.itemized") : entry.note ?? undefined;
 
   return (
     <Pressable style={styles.row} onPress={onPress} accessibilityRole="button">
@@ -418,22 +481,19 @@ function EntryRow({
         <Ionicons name={icon} size={20} color={color} />
       </View>
       <View style={styles.rowInfo}>
-        <Text style={[styles.rowLabel, entry.isDeleted && styles.strikethrough]}>
+        <Text style={[styles.rowLabel, entry.isDeleted && styles.strikethrough]} numberOfLines={1}>
           {isBill
-            ? t("entry.itemsCount", { count: entry.lineItems.length })
+            ? t("entry.billRowLabel", {
+                summary: entry.lineItems[0]?.description ?? t("entry.itemsCount", { count: entry.lineItems.length }),
+              })
             : isCashOut
               ? t("entry.gaveOnCredit")
-              : t("entry.receivedPayment")}
+              : t("khata.cashPayment")}
         </Text>
-        <Text style={styles.rowSubtext}>
-          {entry.entryDate}
-          {entry.isDeleted ? ` · ${t("entry.historyDeleted")}` : ""}
+        <Text style={styles.rowSubtext} numberOfLines={1}>
+          {dateLabel}
+          {entry.isDeleted ? ` · ${t("entry.historyDeleted")}` : suffix ? ` · ${suffix}` : ""}
         </Text>
-        {entry.note ? (
-          <Text style={styles.rowNote} numberOfLines={1}>
-            {entry.note}
-          </Text>
-        ) : null}
       </View>
       <Text
         style={[styles.rowAmount, { color }, entry.isDeleted && styles.strikethrough]}
@@ -443,6 +503,42 @@ function EntryRow({
         {formatMoney(entry.amount, currencySymbol)}
       </Text>
     </Pressable>
+  );
+}
+
+function OpeningBalanceRow({
+  amount,
+  date,
+  currencySymbol,
+}: {
+  amount: number;
+  date: string;
+  currencySymbol: string;
+}) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const isOwed = amount >= 0;
+  const color = isOwed ? colors.owesMe : colors.iOwe;
+  const softBackground = isOwed ? colors.owesMeSoft : colors.iOweSoft;
+
+  return (
+    <View style={styles.row}>
+      <View style={[styles.rowIconBox, { backgroundColor: softBackground }]}>
+        <Ionicons name={isOwed ? "arrow-down-outline" : "arrow-up-outline"} size={20} color={color} />
+      </View>
+      <View style={styles.rowInfo}>
+        <Text style={styles.rowLabel} numberOfLines={1}>
+          {t("khata.openingBalance")}
+        </Text>
+        <Text style={styles.rowSubtext} numberOfLines={1}>
+          {formatShortDate(date)}
+        </Text>
+      </View>
+      <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
+        {formatMoney(Math.abs(amount), currencySymbol)}
+      </Text>
+    </View>
   );
 }
 
@@ -552,6 +648,10 @@ const makeStyles = (colors: AppColors) =>
     flex: 1,
     minWidth: 120,
   },
+  statementDateField: {
+    flex: 1,
+    minWidth: 120,
+  },
   clearButton: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -620,10 +720,33 @@ const makeStyles = (colors: AppColors) =>
     justifyContent: "center",
     padding: theme.spacing.lg,
   },
+  emptyIconBox: {
+    width: 96,
+    height: 96,
+    borderRadius: theme.radius.lg,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  emptyTitle: {
+    ...theme.typography.heading,
+    color: colors.textPrimary,
+    marginBottom: theme.spacing.xs,
+    textAlign: "center",
+  },
   emptyText: {
     ...theme.typography.body,
     color: colors.textSecondary,
     textAlign: "center",
+  },
+  sectionHeader: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "700",
+    textAlign: "center",
+    backgroundColor: colors.background,
+    paddingVertical: theme.spacing.sm,
   },
   newEntryButton: {
     flexDirection: "row",

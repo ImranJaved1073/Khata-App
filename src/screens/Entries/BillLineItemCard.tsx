@@ -200,6 +200,11 @@ export function BillLineItemCard({
         style={styles.input}
         placeholderTextColor={colors.textSecondary}
       />
+      {!item.descriptionTouched && item.description ? (
+        <Text style={styles.autoCaption}>
+          {t("entry.autoDescriptionCaption", { description: item.description })}
+        </Text>
+      ) : null}
 
       <Text style={styles.lineAmount} numberOfLines={1}>
         {formatMoney(amount, currencySymbol)}
@@ -256,9 +261,9 @@ const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: theme.radius.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
@@ -363,6 +368,13 @@ const makeStyles = (colors: AppColors) =>
   stepperValue: {
     ...theme.typography.body,
     color: colors.textPrimary,
+  },
+  autoCaption: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: -theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   lineAmount: {
     ...theme.typography.money,
