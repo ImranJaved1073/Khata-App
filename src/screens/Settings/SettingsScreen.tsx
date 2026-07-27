@@ -10,8 +10,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Avatar } from "../../components/Avatar";
 import { LanguageSelector } from "../../components/LanguageSelector";
 import { ThemeModeSelector } from "../../components/ThemeModeSelector";
 import { db } from "../../db/client";
@@ -27,6 +30,7 @@ import {
 } from "../../lib/appLock";
 import { BACKUP_FILE_NAME, BACKUP_MIME, pickBackupFile } from "../../lib/backupFile";
 import { writeAndShareFile } from "../../lib/exportFile";
+import { getInitials } from "../../lib/textFormat";
 import { getBackupData, isBackupData, restoreBackupData } from "../../repositories/backupRepository";
 import { getSettings, updateSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
@@ -34,10 +38,13 @@ import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { AppLanguage, Settings } from "../../types/models";
 
+const CURRENCY_PRESETS = ["Rs", "₹", "৳", "$"];
+
 export function SettingsScreen() {
   const { t } = useTranslation();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [businessName, setBusinessName] = useState("");
@@ -45,6 +52,8 @@ export function SettingsScreen() {
   const [billFooterText, setBillFooterText] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [languageExpanded, setLanguageExpanded] = useState(false);
 
   useEffect(() => {
     getSettings(db)
@@ -116,74 +125,145 @@ export function SettingsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + theme.spacing.md }]}
       keyboardShouldPersistTaps="handled"
     >
+      <Text style={styles.screenTitle}>{t("settings.title")}</Text>
+
       <Section title={t("settings.businessProfile")}>
-        <Field label={t("onboarding.businessName")}>
-          <TextInput
-            value={businessName}
-            onChangeText={setBusinessName}
-            style={styles.input}
-            placeholder={t("onboarding.businessNamePlaceholder")}
-            placeholderTextColor={colors.textSecondary}
-          />
-        </Field>
-        <Field label={t("settings.currency")}>
-          <TextInput
-            value={currencySymbol}
-            onChangeText={setCurrencySymbol}
-            style={styles.input}
-            placeholder="Rs"
-            placeholderTextColor={colors.textSecondary}
-          />
-        </Field>
-        <Field label={t("settings.billFooter")}>
-          <TextInput
-            value={billFooterText}
-            onChangeText={setBillFooterText}
-            style={[styles.input, styles.multilineInput]}
-            placeholder={t("settings.billFooter")}
-            placeholderTextColor={colors.textSecondary}
-            multiline
-          />
-        </Field>
-        <View style={styles.saveRow}>
-          <Pressable
-            style={styles.saveButton}
-            onPress={handleSaveProfile}
-            disabled={profileSaving}
-            accessibilityRole="button"
-            accessibilityLabel={t("customerForm.save")}
-          >
-            {profileSaving ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text style={styles.saveButtonText}>{t("customerForm.save")}</Text>
-            )}
-          </Pressable>
-          {profileSaved ? <Text style={styles.savedText}>{t("settings.saved")}</Text> : null}
+        <SettingsRow
+          leading={
+            <Avatar
+              label={getInitials(businessName || t("app.name"))}
+              size={44}
+              shape="square"
+              backgroundColor={colors.primary}
+              color={colors.accent}
+            />
+          }
+          label={businessName || t("app.name")}
+          labelBold
+          hint={t("settings.businessProfileHint")}
+          chevron
+          expanded={profileExpanded}
+          onPress={() => setProfileExpanded((current) => !current)}
+        />
+        <Divider />
+        <SettingsRow
+          icon="reader-outline"
+          label={t("settings.billFooter")}
+          value={billFooterText || "—"}
+          onPress={() => setProfileExpanded((current) => !current)}
+        />
+
+        {profileExpanded ? (
+          <View style={styles.expandedPanel}>
+            <Field label={t("onboarding.businessName")}>
+              <TextInput
+                value={businessName}
+                onChangeText={setBusinessName}
+                style={styles.input}
+                placeholder={t("onboarding.businessNamePlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+              />
+            </Field>
+            <Field label={t("settings.currency")}>
+              <View style={styles.currencyChipRow}>
+                {CURRENCY_PRESETS.map((preset) => (
+                  <Pressable
+                    key={preset}
+                    style={[
+                      styles.currencyChip,
+                      currencySymbol === preset && styles.currencyChipActive,
+                    ]}
+                    onPress={() => setCurrencySymbol(preset)}
+                    accessibilityRole="button"
+                    accessibilityLabel={preset}
+                    accessibilityState={{ selected: currencySymbol === preset }}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyChipText,
+                        currencySymbol === preset && styles.currencyChipTextActive,
+                      ]}
+                    >
+                      {preset}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                value={currencySymbol}
+                onChangeText={setCurrencySymbol}
+                style={styles.input}
+                placeholder="Rs"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </Field>
+            <Field label={t("settings.billFooter")}>
+              <TextInput
+                value={billFooterText}
+                onChangeText={setBillFooterText}
+                style={[styles.input, styles.multilineInput]}
+                placeholder={t("settings.billFooter")}
+                placeholderTextColor={colors.textSecondary}
+                multiline
+              />
+            </Field>
+            <View style={styles.saveRow}>
+              <Pressable
+                style={styles.saveButton}
+                onPress={handleSaveProfile}
+                disabled={profileSaving}
+                accessibilityRole="button"
+                accessibilityLabel={t("customerForm.save")}
+              >
+                {profileSaving ? (
+                  <ActivityIndicator color={colors.onPrimary} />
+                ) : (
+                  <Text style={styles.saveButtonText}>{t("customerForm.save")}</Text>
+                )}
+              </Pressable>
+              {profileSaved ? <Text style={styles.savedText}>{t("settings.saved")}</Text> : null}
+            </View>
+          </View>
+        ) : null}
+      </Section>
+
+      <View style={styles.sectionWrapper}>
+        <Text style={styles.sectionCaption}>{t("settings.appearanceLanguage").toUpperCase()}</Text>
+        <View style={styles.section}>
+          <View style={styles.themeCard}>
+            <Text style={styles.inlineLabel}>{t("settings.theme")}</Text>
+            <ThemeModeSelector value={mode} onChange={handleThemeChange} />
+          </View>
         </View>
-      </Section>
+        <View style={[styles.section, styles.sectionGap]}>
+          <SettingsRow
+            icon="language-outline"
+            label={t("settings.language")}
+            hint={t("settings.restartForLanguageShort")}
+            hintColor={colors.accent}
+            value={settings.language === "ur" ? "اردو" : "English"}
+            expanded={languageExpanded}
+            onPress={() => setLanguageExpanded((current) => !current)}
+          />
+          {languageExpanded ? (
+            <View style={styles.expandedPanel}>
+              <LanguageSelector value={settings.language} onChange={handleLanguageChange} />
+            </View>
+          ) : null}
+        </View>
+      </View>
 
-      <Section title={t("settings.language")}>
-        <LanguageSelector value={settings.language} onChange={handleLanguageChange} />
-      </Section>
-
-      <Section title={t("settings.appearance")}>
-        <ThemeModeSelector value={mode} onChange={handleThemeChange} />
-      </Section>
-
-      <Section title={t("settings.security")}>
+      <Section title={t("settings.securityBackup")}>
         <PinSection
           biometricEnabled={settings.biometricEnabled}
           onBiometricEnabledChange={(value) =>
             setSettings((current) => (current ? { ...current, biometricEnabled: value } : current))
           }
         />
-      </Section>
-
-      <Section title={t("settings.backupRestore")}>
+        <Divider />
         <BackupSection />
       </Section>
     </ScrollView>
@@ -334,41 +414,37 @@ function PinSection({
   return (
     <View>
       {flowMode === "idle" ? (
-        <View style={styles.pinButtonRow}>
+        <>
           {!hasPinState ? (
-            <Pressable
-              style={styles.secondaryButton}
+            <SettingsRow
+              icon="keypad-outline"
+              label={t("settings.setPin")}
+              chevron
               onPress={() => setFlowMode("setting")}
-              accessibilityRole="button"
-              accessibilityLabel={t("settings.setPin")}
-            >
-              <Text style={styles.secondaryButtonText}>{t("settings.setPin")}</Text>
-            </Pressable>
+            />
           ) : (
             <>
-              <Pressable
-                style={styles.secondaryButton}
+              <SettingsRow
+                icon="keypad-outline"
+                label={t("settings.changePin")}
+                chevron
                 onPress={() => setFlowMode("verify-change")}
-                accessibilityRole="button"
-                accessibilityLabel={t("settings.changePin")}
-              >
-                <Text style={styles.secondaryButtonText}>{t("settings.changePin")}</Text>
-              </Pressable>
-              <Pressable
-                style={styles.secondaryButton}
+              />
+              <Divider />
+              <SettingsRow
+                icon="trash-outline"
+                label={t("settings.removePin")}
+                chevron
+                danger
                 onPress={() => setFlowMode("verify-remove")}
-                accessibilityRole="button"
-                accessibilityLabel={t("settings.removePin")}
-              >
-                <Text style={styles.dangerButtonText}>{t("settings.removePin")}</Text>
-              </Pressable>
+              />
             </>
           )}
-        </View>
+        </>
       ) : null}
 
       {flowMode === "setting" || flowMode === "new-change" ? (
-        <View>
+        <View style={styles.expandedPanel}>
           <Field label={flowMode === "setting" ? t("onboarding.pin") : t("settings.newPin")}>
             <TextInput
               value={inputA}
@@ -422,7 +498,7 @@ function PinSection({
       ) : null}
 
       {flowMode === "verify-change" || flowMode === "verify-remove" ? (
-        <View>
+        <View style={styles.expandedPanel}>
           <Field label={t("settings.currentPin")}>
             <TextInput
               value={inputA}
@@ -463,26 +539,34 @@ function PinSection({
         </View>
       ) : null}
 
-      {hasPinState && biometricHardware ? (
-        <View style={[styles.switchRow, styles.biometricRow]}>
-          <Text style={styles.switchLabel}>{t("settings.biometric")}</Text>
+      <Divider />
+      <SettingsRow
+        icon="finger-print-outline"
+        label={t("settings.biometric")}
+        hint={
+          !hasPinState
+            ? t("settings.biometricNeedsPin")
+            : !biometricHardware
+              ? t("settings.biometricUnavailable")
+              : undefined
+        }
+        trailing={
           <Switch
             value={biometricEnabled}
             onValueChange={handleBiometricToggle}
+            disabled={!hasPinState || !biometricHardware}
             trackColor={{ true: colors.primary, false: colors.border }}
             thumbColor={colors.onPrimary}
             accessibilityLabel={t("settings.biometric")}
           />
-        </View>
-      ) : null}
+        }
+      />
     </View>
   );
 }
 
 function BackupSection() {
   const { t } = useTranslation();
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [busy, setBusy] = useState<"export" | "restore" | null>(null);
 
   async function handleExport() {
@@ -548,33 +632,24 @@ function BackupSection() {
   }
 
   return (
-    <View style={styles.pinButtonRow}>
-      <Pressable
-        style={styles.secondaryButton}
+    <View>
+      <SettingsRow
+        icon="cloud-upload-outline"
+        label={t("settings.exportBackup")}
+        chevron
+        busy={busy === "export"}
+        disabled={busy !== null}
         onPress={handleExport}
+      />
+      <Divider />
+      <SettingsRow
+        icon="time-outline"
+        label={t("settings.restore")}
+        chevron
+        busy={busy === "restore"}
         disabled={busy !== null}
-        accessibilityRole="button"
-        accessibilityLabel={t("settings.exportBackup")}
-      >
-        {busy === "export" ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Text style={styles.secondaryButtonText}>{t("settings.exportBackup")}</Text>
-        )}
-      </Pressable>
-      <Pressable
-        style={styles.secondaryButton}
         onPress={confirmRestore}
-        disabled={busy !== null}
-        accessibilityRole="button"
-        accessibilityLabel={t("settings.restore")}
-      >
-        {busy === "restore" ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Text style={styles.dangerButtonText}>{t("settings.restore")}</Text>
-        )}
-      </Pressable>
+      />
     </View>
   );
 }
@@ -583,11 +658,105 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+    <View style={styles.sectionWrapper}>
+      <Text style={styles.sectionCaption}>{title.toUpperCase()}</Text>
+      <View style={styles.section}>{children}</View>
     </View>
   );
+}
+
+/** A single tappable settings list row — icon/avatar + label(+hint) on the left, value/switch/chevron on the right. */
+function SettingsRow({
+  icon,
+  leading,
+  label,
+  labelBold,
+  hint,
+  hintColor,
+  value,
+  chevron,
+  expanded,
+  danger,
+  trailing,
+  busy,
+  disabled,
+  onPress,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  leading?: React.ReactNode;
+  label: string;
+  labelBold?: boolean;
+  hint?: string;
+  hintColor?: string;
+  value?: string;
+  chevron?: boolean;
+  expanded?: boolean;
+  danger?: boolean;
+  trailing?: React.ReactNode;
+  busy?: boolean;
+  disabled?: boolean;
+  onPress?: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const labelColor = danger ? colors.danger : colors.textPrimary;
+
+  const content = (
+    <View style={styles.row}>
+      {leading ? (
+        <View style={styles.rowLeading}>{leading}</View>
+      ) : icon ? (
+        <Ionicons
+          name={icon}
+          size={20}
+          color={danger ? colors.danger : colors.primary}
+          style={styles.rowIcon}
+        />
+      ) : null}
+      <View style={styles.rowInfo}>
+        <Text style={[styles.rowLabel, labelBold && styles.rowLabelBold, { color: labelColor }]}>
+          {label}
+        </Text>
+        {hint ? (
+          <Text style={[styles.rowHint, hintColor ? { color: hintColor } : null]}>{hint}</Text>
+        ) : null}
+      </View>
+      {busy ? <ActivityIndicator size="small" color={colors.primary} /> : null}
+      {!busy && value ? (
+        <Text style={styles.rowValue} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      {!busy && trailing ? trailing : null}
+      {!busy && chevron ? (
+        <Ionicons
+          name={expanded ? "chevron-down" : "chevron-forward"}
+          size={18}
+          color={colors.textSecondary}
+          style={styles.rowChevron}
+        />
+      ) : null}
+    </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+function Divider() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return <View style={styles.divider} />;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -605,7 +774,7 @@ const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
     },
     center: {
       flex: 1,
@@ -617,31 +786,123 @@ const makeStyles = (colors: AppColors) =>
       padding: theme.spacing.md,
       paddingBottom: theme.spacing.xl,
     },
+    screenTitle: {
+      ...theme.typography.title,
+      color: colors.textPrimary,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionWrapper: {
+      marginBottom: theme.spacing.lg,
+    },
+    sectionCaption: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+      marginBottom: theme.spacing.sm,
+    },
     section: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
+      borderRadius: theme.radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: theme.spacing.md,
+    },
+    themeCard: {
+      paddingVertical: theme.spacing.md,
+    },
+    sectionGap: {
+      marginTop: theme.spacing.sm,
+    },
+    inlineLabel: {
+      ...theme.typography.body,
+      color: colors.textPrimary,
+      marginBottom: theme.spacing.sm,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: theme.spacing.md,
+      gap: theme.spacing.sm,
+    },
+    rowLeading: {
+      marginEnd: theme.spacing.xs,
+    },
+    rowIcon: {
+      width: 24,
+      textAlign: "center",
+    },
+    rowInfo: {
+      flex: 1,
+    },
+    rowLabel: {
+      ...theme.typography.body,
+    },
+    rowLabelBold: {
+      ...theme.typography.heading,
+    },
+    rowHint: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    rowValue: {
+      ...theme.typography.body,
+      color: colors.textSecondary,
+      maxWidth: 140,
+    },
+    rowChevron: {
+      marginStart: theme.spacing.xs,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    expandedPanel: {
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: theme.spacing.xs,
+    },
+    currencyChipRow: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+    },
+    currencyChip: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
       borderWidth: 1,
       borderColor: colors.border,
-      padding: theme.spacing.md,
-      marginBottom: theme.spacing.md,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    sectionTitle: {
-      ...theme.typography.heading,
+    currencyChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    currencyChipText: {
+      ...theme.typography.body,
       color: colors.textPrimary,
-      marginBottom: theme.spacing.md,
+      fontWeight: "600",
+    },
+    currencyChipTextActive: {
+      color: colors.onPrimary,
     },
     field: {
       marginBottom: theme.spacing.md,
     },
     fieldLabel: {
       ...theme.typography.body,
-      color: colors.textPrimary,
+      color: colors.textSecondary,
       marginBottom: theme.spacing.xs,
     },
     input: {
       ...theme.typography.body,
       color: colors.textPrimary,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: theme.radius.md,
@@ -685,6 +946,8 @@ const makeStyles = (colors: AppColors) =>
     },
     secondaryButton: {
       flex: 1,
+      flexDirection: "row",
+      gap: theme.spacing.xs,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
       borderWidth: 1,
@@ -701,20 +964,5 @@ const makeStyles = (colors: AppColors) =>
       ...theme.typography.body,
       color: colors.danger,
       fontWeight: "600",
-    },
-    switchRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: theme.spacing.sm,
-    },
-    biometricRow: {
-      marginTop: theme.spacing.sm,
-    },
-    switchLabel: {
-      ...theme.typography.body,
-      color: colors.textPrimary,
-      flex: 1,
-      marginEnd: theme.spacing.sm,
     },
   });

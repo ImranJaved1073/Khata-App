@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,8 @@ import type { RouteProp } from "@react-navigation/native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import type { ActionSheetOption } from "../../components/ActionSheet";
+import { ActionSheet } from "../../components/ActionSheet";
 import { db } from "../../db/client";
 import { buildBillHtml, buildBillText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
@@ -46,6 +48,7 @@ export function EntryDetailScreen() {
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,32 +73,26 @@ export function EntryDetailScreen() {
     }, [load]),
   );
 
-  async function handleShare() {
+  useEffect(() => {
+    if (!entry) return;
+    navigation.setOptions({
+      title: entry.type === "bill" ? t("entry.billDetailTitle") : t("entry.simpleDetailTitle"),
+    });
+  }, [navigation, entry, t]);
+
+  async function handleShare(method: "whatsapp" | "sms" | "pdf") {
     if (!entry) return;
     try {
       const data = await getBillDocumentData(db, entry.id);
       if (!data) return;
-      const message = buildBillText(data);
-      Alert.alert(t("share.billTitle"), undefined, [
-        {
-          text: t("share.whatsapp"),
-          onPress: () => shareViaWhatsApp(message, data.customer.phone),
-        },
-        { text: t("share.sms"), onPress: () => shareViaSms(message, data.customer.phone) },
-        {
-          text: t("share.pdf"),
-          onPress: async () => {
-            try {
-              const shared = await sharePdf(buildBillHtml(data), t("share.billTitle"));
-              if (!shared) Alert.alert(t("share.unavailable"));
-            } catch (error) {
-              console.error(error);
-              Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
-            }
-          },
-        },
-        { text: t("customerForm.cancel"), style: "cancel" },
-      ]);
+      if (method === "whatsapp") {
+        shareViaWhatsApp(buildBillText(data), data.customer.phone);
+      } else if (method === "sms") {
+        shareViaSms(buildBillText(data), data.customer.phone);
+      } else {
+        const shared = await sharePdf(buildBillHtml(data), t("share.billTitle"));
+        if (!shared) Alert.alert(t("share.unavailable"));
+      }
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
@@ -135,79 +132,80 @@ export function EntryDetailScreen() {
 
   const isCashOut = entry.direction === "cash_out";
   const color = isCashOut ? colors.owesMe : colors.iOwe;
+  const softColor = isCashOut ? colors.owesMeSoft : colors.iOweSoft;
+
+  const shareOptions: ActionSheetOption[] = [
+    {
+      key: "whatsapp",
+      icon: "logo-whatsapp",
+      iconBackgroundColor: colors.iOwe,
+      iconColor: colors.onPrimary,
+      label: t("share.whatsapp"),
+      description: t("share.whatsappHint"),
+      onPress: () => handleShare("whatsapp"),
+    },
+    {
+      key: "sms",
+      icon: "chatbubble-ellipses-outline",
+      iconBackgroundColor: colors.primary,
+      iconColor: colors.onPrimary,
+      label: t("share.sms"),
+      description: t("share.smsHint"),
+      onPress: () => handleShare("sms"),
+    },
+    {
+      key: "pdf",
+      icon: "document-text",
+      iconBackgroundColor: colors.owesMe,
+      iconColor: colors.onPrimary,
+      label: t("share.pdf"),
+      description: t("share.pdfHint"),
+      onPress: () => handleShare("pdf"),
+    },
+  ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {customer ? (
-        <Text style={styles.customerName} numberOfLines={1}>
-          {customer.name}
-        </Text>
-      ) : null}
-      <Text style={styles.date}>{entry.entryDate}</Text>
-
-      <View style={styles.actionsRow}>
-        <Pressable style={styles.actionButton} accessibilityRole="button" onPress={handleShare}>
-          <Ionicons name="share-social-outline" size={18} color={colors.primary} />
-          <Text style={styles.actionButtonText}>{t("entry.share")}</Text>
-        </Pressable>
-        <Pressable
-          style={styles.actionButton}
-          accessibilityRole="button"
-          onPress={() =>
-            navigation.navigate("EntryForm", {
-              customerId: entry.customerId,
-              mode: entry.type,
-              entryId: entry.id,
-            })
-          }
-        >
-          <Ionicons name="pencil-outline" size={18} color={colors.primary} />
-          <Text style={styles.actionButtonText}>{t("entry.edit")}</Text>
-        </Pressable>
-        <Pressable
-          style={styles.actionButton}
-          accessibilityRole="button"
-          onPress={() => navigation.navigate("EntryHistory", { entryId: entry.id })}
-        >
-          <Ionicons name="time-outline" size={18} color={colors.primary} />
-          <Text style={styles.actionButtonText}>{t("entry.history")}</Text>
-        </Pressable>
-        <Pressable
-          style={styles.actionButton}
-          accessibilityRole="button"
-          onPress={confirmDelete}
-          disabled={deleting}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color={colors.danger} />
-          ) : (
-            <Ionicons name="trash-outline" size={18} color={colors.danger} />
-          )}
-          <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
-            {t("entry.delete")}
+    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerInfo}>
+          {customer ? (
+            <Text style={styles.customerLine} numberOfLines={1}>
+              {customer.name} · {entry.entryDate}
+            </Text>
+          ) : null}
+          <Text style={[styles.amount, { color }]} numberOfLines={1} adjustsFontSizeToFit>
+            {formatMoney(entry.amount, currencySymbol)}
           </Text>
-        </Pressable>
+        </View>
+        <View style={[styles.balancePill, { backgroundColor: softColor }]}>
+          <Text style={[styles.balancePillText, { color }]}>
+            {isCashOut ? t("entry.detailOwesYou") : t("entry.detailYouPaid")}
+          </Text>
+        </View>
       </View>
 
       {entry.type === "bill" ? (
-        <>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderText, styles.tableItemCol]}>
+              {t("entry.tableItem")}
+            </Text>
+            <Text style={[styles.tableHeaderText, styles.tableQtyCol]}>
+              {t("entry.tableQty")}
+            </Text>
+            <Text style={[styles.tableHeaderText, styles.tableAmountCol]}>
+              {t("entry.tableAmount")}
+            </Text>
+          </View>
           {entry.lineItems.map((item) => (
             <LineItemRow key={item.id} item={item} currencySymbol={currencySymbol} />
           ))}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{t("entry.total")}</Text>
-            <Text style={styles.totalAmount} numberOfLines={1}>
-              {formatMoney(entry.amount, currencySymbol)}
-            </Text>
-          </View>
-        </>
+        </View>
       ) : (
-        <View style={styles.amountRow}>
-          <Text style={styles.amountLabel}>
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>
             {isCashOut ? t("entry.gaveOnCredit") : t("entry.receivedPayment")}
-          </Text>
-          <Text style={[styles.amountValue, { color }]} numberOfLines={1}>
-            {formatMoney(entry.amount, currencySymbol)}
           </Text>
         </View>
       )}
@@ -220,9 +218,89 @@ export function EntryDetailScreen() {
       ) : null}
 
       {entry.attachmentUri ? (
-        <Image source={{ uri: entry.attachmentUri }} style={styles.attachment} />
+        <View style={styles.attachmentRow}>
+          <Image source={{ uri: entry.attachmentUri }} style={styles.attachment} />
+          <View style={styles.attachmentInfo}>
+            <Text style={styles.attachmentTitle}>{t("entry.attachedReceipt")}</Text>
+            <Text style={styles.attachmentHint}>{t("entry.tapToView")}</Text>
+          </View>
+        </View>
       ) : null}
     </ScrollView>
+
+    <View style={styles.actionsRow}>
+        <ActionButton
+          icon="share-outline"
+          label={t("entry.share")}
+          onPress={() => setShareSheetVisible(true)}
+        />
+        <ActionButton
+          icon="pencil-outline"
+          label={t("entry.edit")}
+          onPress={() =>
+            navigation.navigate("EntryForm", {
+              customerId: entry.customerId,
+              mode: entry.type,
+              entryId: entry.id,
+            })
+          }
+        />
+        <ActionButton
+          icon="time-outline"
+          label={t("entry.history")}
+          onPress={() => navigation.navigate("EntryHistory", { entryId: entry.id })}
+        />
+        <ActionButton
+          icon="trash-outline"
+          label={t("entry.delete")}
+          onPress={confirmDelete}
+          busy={deleting}
+          danger
+        />
+      </View>
+
+      <ActionSheet
+        visible={shareSheetVisible}
+        onClose={() => setShareSheetVisible(false)}
+        title={t("share.billTitle")}
+        options={shareOptions}
+        cancelLabel={t("customerForm.cancel")}
+      />
+    </View>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onPress,
+  busy,
+  danger,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  danger?: boolean;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Pressable
+      style={[styles.actionButton, danger && styles.actionButtonDanger]}
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={busy}
+    >
+      {busy ? (
+        <ActivityIndicator size="small" color={colors.danger} />
+      ) : (
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.primary} />
+      )}
+      <Text style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -239,16 +317,21 @@ function LineItemRow({
 
   return (
     <View style={styles.lineRow}>
-      {swatchColor ? (
-        <View style={[styles.swatch, { backgroundColor: swatchColor }]} />
-      ) : null}
-      <View style={styles.lineInfo}>
-        <Text style={styles.lineDescription}>{item.description}</Text>
-        <Text style={styles.lineSubtext}>
-          {item.quantity} × {formatMoney(item.rate, currencySymbol)}
-        </Text>
+      <View style={styles.tableItemCol}>
+        <View style={styles.lineItemInner}>
+          {swatchColor ? (
+            <View style={[styles.swatch, { backgroundColor: swatchColor }]} />
+          ) : null}
+          <View style={styles.lineInfo}>
+            <Text style={styles.lineDescription}>{item.description}</Text>
+            <Text style={styles.lineSubtext}>
+              {item.quantity} × {formatMoney(item.rate, currencySymbol)}
+            </Text>
+          </View>
+        </View>
       </View>
-      <Text style={styles.lineAmount} numberOfLines={1}>
+      <Text style={[styles.lineQty, styles.tableQtyCol]}>{item.quantity}</Text>
+      <Text style={[styles.lineAmount, styles.tableAmountCol]} numberOfLines={1}>
         {formatMoney(item.amount, currencySymbol)}
       </Text>
     </View>
@@ -270,51 +353,79 @@ const makeStyles = (colors: AppColors) =>
   content: {
     padding: theme.spacing.md,
   },
-  customerName: {
-    ...theme.typography.heading,
-    color: colors.textPrimary,
-  },
-  date: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginBottom: theme.spacing.sm,
-  },
-  actionsRow: {
+  headerRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     marginBottom: theme.spacing.md,
   },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
+  headerInfo: {
+    flex: 1,
+    marginEnd: theme.spacing.sm,
+  },
+  customerLine: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  amount: {
+    fontSize: 30,
+    fontWeight: "700",
+  },
+  balancePill: {
+    borderRadius: theme.radius.pill,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  balancePillText: {
+    ...theme.typography.caption,
+    fontWeight: "700",
+  },
+  table: {
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: "hidden",
+    marginBottom: theme.spacing.md,
+  },
+  tableHeader: {
+    flexDirection: "row",
     backgroundColor: colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
   },
-  actionButtonText: {
-    ...theme.typography.body,
-    color: colors.primary,
-    fontWeight: "600",
+  tableHeaderText: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
-  deleteButtonText: {
-    color: colors.danger,
+  tableItemCol: {
+    flex: 1,
+  },
+  tableQtyCol: {
+    width: 40,
+    textAlign: "center",
+  },
+  tableAmountCol: {
+    width: 90,
+    textAlign: "right",
   },
   lineRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  lineItemInner: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   swatch: {
-    width: 24,
-    height: 24,
+    width: 20,
+    height: 20,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -322,70 +433,95 @@ const makeStyles = (colors: AppColors) =>
   },
   lineInfo: {
     flex: 1,
-    marginEnd: theme.spacing.sm,
   },
   lineDescription: {
     ...theme.typography.body,
     color: colors.textPrimary,
+    fontWeight: "600",
   },
   lineSubtext: {
     ...theme.typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },
+  lineQty: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+  },
   lineAmount: {
     ...theme.typography.body,
     color: colors.textPrimary,
-    fontWeight: "600",
-  },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: theme.spacing.sm,
-    marginTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  totalLabel: {
-    ...theme.typography.heading,
-    color: colors.textPrimary,
-  },
-  totalAmount: {
-    fontSize: 22,
     fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  amountRow: {
-    backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-  },
-  amountLabel: {
-    ...theme.typography.body,
-    color: colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  amountValue: {
-    ...theme.typography.money,
-    fontSize: 24,
   },
   noteBox: {
-    marginTop: theme.spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
   },
   noteLabel: {
     ...theme.typography.caption,
     color: colors.textSecondary,
+    fontWeight: "700",
+    textTransform: "uppercase",
     marginBottom: theme.spacing.xs,
   },
   noteText: {
     ...theme.typography.body,
     color: colors.textPrimary,
   },
+  attachmentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
   attachment: {
-    width: "100%",
-    height: 200,
+    width: 72,
+    height: 72,
     borderRadius: theme.radius.md,
-    marginTop: theme.spacing.md,
+    backgroundColor: colors.surface,
+  },
+  attachmentInfo: {
+    flex: 1,
+  },
+  attachmentTitle: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  attachmentHint: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: "22%",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionButtonDanger: {
+    borderColor: colors.danger,
+  },
+  actionButtonText: {
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: "600",
+  },
+  actionButtonTextDanger: {
+    color: colors.danger,
   },
 });

@@ -200,6 +200,11 @@ export function BillLineItemCard({
         style={styles.input}
         placeholderTextColor={colors.textSecondary}
       />
+      {!item.descriptionTouched && item.description ? (
+        <Text style={styles.autoCaption}>
+          {t("entry.autoDescriptionCaption", { description: item.description })}
+        </Text>
+      ) : null}
 
       <Text style={styles.lineAmount} numberOfLines={1}>
         {formatMoney(amount, currencySymbol)}
@@ -242,6 +247,12 @@ export function CollapsedLineRow({
       <Text style={styles.collapsedAmount} numberOfLines={1}>
         {formatMoney(amount, currencySymbol)}
       </Text>
+      <Ionicons
+        name="chevron-down"
+        size={16}
+        color={colors.textSecondary}
+        style={styles.collapsedChevron}
+      />
     </Pressable>
   );
 }
@@ -250,9 +261,9 @@ const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: theme.radius.lg,
+    borderWidth: 2,
+    borderColor: colors.primary,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
@@ -327,7 +338,7 @@ const makeStyles = (colors: AppColors) =>
   },
   swatchActive: {
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
   },
   row: {
     flexDirection: "row",
@@ -357,6 +368,13 @@ const makeStyles = (colors: AppColors) =>
   stepperValue: {
     ...theme.typography.body,
     color: colors.textPrimary,
+  },
+  autoCaption: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+    marginTop: -theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   lineAmount: {
     ...theme.typography.money,
@@ -400,5 +418,8 @@ const makeStyles = (colors: AppColors) =>
     ...theme.typography.body,
     color: colors.textPrimary,
     fontWeight: "600",
+  },
+  collapsedChevron: {
+    marginStart: theme.spacing.xs,
   },
 });

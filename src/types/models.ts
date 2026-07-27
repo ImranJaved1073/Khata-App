@@ -57,6 +57,8 @@ export interface AuditLogEntry {
   id: string;
   entity: AuditEntity;
   entityId: string;
+  /** Parent entry id, set only for `entity: "line_item"` rows — see data-model.md. */
+  entryId: string | null;
   action: AuditAction;
   /** Old -> new values for changed fields. */
   diff: Record<string, { old: unknown; new: unknown }> | null;

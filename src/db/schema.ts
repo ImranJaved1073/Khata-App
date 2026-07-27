@@ -78,6 +78,8 @@ export const auditLog = sqliteTable("audit_log", {
     enum: ["customer", "entry", "line_item"],
   }).notNull(),
   entityId: text("entity_id").notNull(),
+  /** Parent entry id for `entity: "line_item"` rows — line items are hard-deleted from `line_items` on bill edit, so this is the only way to find a removed line's history once it's gone from that table. Null for `customer`/`entry` rows (entityId already identifies them). */
+  entryId: text("entry_id"),
   action: text("action", { enum: ["create", "edit", "delete"] }).notNull(),
   /** JSON-stringified old -> new values for changed fields. */
   diff: text("diff"),

@@ -53,21 +53,22 @@ const makeStyles = (colors: AppColors) =>
       flex: 1,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderWidth: 2,
+      borderColor: "transparent",
+      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
     },
     optionActive: {
-      backgroundColor: colors.primary,
+      backgroundColor: colors.background,
       borderColor: colors.primary,
     },
     optionText: {
       ...theme.typography.body,
-      color: colors.textPrimary,
+      color: colors.textSecondary,
     },
     optionTextActive: {
-      color: colors.onPrimary,
+      color: colors.textPrimary,
       fontWeight: "600",
     },
   });

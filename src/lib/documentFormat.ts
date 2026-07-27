@@ -42,8 +42,8 @@ function initials(name: string): string {
 }
 
 /** Stable short human-facing reference derived from a UUID (not stored — display only). */
-function shortRef(id: string): string {
-  return id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase();
+function shortRef(id: string, prefix = "KH-"): string {
+  return `${prefix}${id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase()}`;
 }
 
 function swatchHex(color: string | null): string | null {
@@ -64,47 +64,48 @@ function totalQuantity(entry: EntryWithLineItems): number {
 function documentStyles(): string {
   return `
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: ${colors.textPrimary}; margin: 0; padding: 24px; font-size: 12px; }
-    .card { border: 1px solid ${colors.border}; border-radius: 8px; padding: 28px; max-width: 760px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; border-bottom: 1px solid ${colors.border}; padding-bottom: 20px; }
-    .brand { display: flex; gap: 14px; }
-    .logo { width: 56px; height: 56px; border: 1px solid ${colors.primary}; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${colors.primary}; font-size: 18px; overflow: hidden; }
+    body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: ${colors.textPrimary}; margin: 0; padding: 32px; font-size: 15px; background: ${colors.surface}; }
+    .card { background: #fff; border: 1px solid ${colors.border}; border-radius: 16px; overflow: hidden; max-width: 860px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; background: ${colors.primary}; padding: 32px 36px; }
+    .brand { display: flex; gap: 18px; align-items: flex-start; }
+    .logo { width: 68px; height: 68px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${colors.primary}; font-size: 22px; overflow: hidden; flex-shrink: 0; }
     .logo img { width: 100%; height: 100%; object-fit: cover; }
-    .business-name { font-size: 20px; font-weight: 700; }
+    .business-name { font-size: 26px; font-weight: 700; color: #fff; }
+    .business-line { color: ${colors.primaryMuted}; margin-top: 5px; font-size: 14px; }
+    .doc-side { text-align: right; flex-shrink: 0; }
+    .doc-type { color: ${colors.accent}; letter-spacing: 2px; font-weight: 700; font-size: 13px; text-transform: uppercase; }
+    .doc-number { font-size: 22px; font-weight: 700; margin-top: 5px; color: #fff; }
+    .content { padding: 32px 36px; }
     .muted { color: ${colors.textSecondary}; }
-    .doc-side { text-align: right; }
-    .doc-type { color: ${colors.primary}; letter-spacing: 3px; font-weight: 600; }
-    .doc-number { font-size: 18px; font-weight: 700; margin-top: 2px; }
-    .meta { color: ${colors.textSecondary}; margin-top: 8px; line-height: 1.6; }
-    .parties { display: flex; gap: 16px; margin-top: 20px; }
-    .party { flex: 1; border: 1px solid ${colors.border}; border-radius: 8px; padding: 14px; }
-    .party-label { color: ${colors.primary}; letter-spacing: 1px; font-size: 10px; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; }
-    .party-name { font-weight: 700; font-size: 14px; }
-    .party-line { color: ${colors.textSecondary}; margin-top: 3px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    thead th { background: ${colors.primary}; color: #fff; text-align: left; padding: 10px 12px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+    .parties { display: flex; gap: 18px; }
+    .party { flex: 1; background: ${colors.surface}; border-radius: 10px; padding: 18px; }
+    .party-label { color: ${colors.textSecondary}; letter-spacing: 1px; font-size: 12px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+    .party-name { font-weight: 700; font-size: 18px; }
+    .party-line { color: ${colors.textSecondary}; margin-top: 4px; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; border-radius: 10px; overflow: hidden; }
+    thead th { background: ${colors.primary}; color: #fff; text-align: left; padding: 13px 16px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
     thead th.num { text-align: right; }
-    tbody td { padding: 12px; border-bottom: 1px solid ${colors.border}; vertical-align: top; }
-    tbody tr:nth-child(even) { background: ${colors.surface}; }
+    tbody td { padding: 16px; border-bottom: 1px solid ${colors.border}; vertical-align: top; font-size: 16px; }
     .item-desc { font-weight: 700; }
-    .item-sub { color: ${colors.textSecondary}; margin-top: 3px; }
-    .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid ${colors.border}; vertical-align: middle; margin-right: 5px; }
+    .item-sub { color: ${colors.textSecondary}; margin-top: 4px; font-size: 13px; }
+    .swatch { width: 13px; height: 13px; border-radius: 50%; display: inline-block; border: 1px solid ${colors.border}; vertical-align: middle; margin-right: 7px; }
     td.num { text-align: right; white-space: nowrap; }
-    .idx { color: ${colors.primary}; }
-    .totals-wrap { display: flex; justify-content: space-between; margin-top: 20px; gap: 24px; }
+    .totals-wrap { display: flex; justify-content: space-between; margin-top: 24px; gap: 28px; }
     .note { flex: 1; }
-    .note-label { color: ${colors.primary}; font-size: 10px; letter-spacing: 1px; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
-    .note-text { color: ${colors.textSecondary}; line-height: 1.5; white-space: pre-line; }
-    .totals { width: 280px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 6px 0; }
-    .bill-total { display: flex; justify-content: space-between; background: ${colors.primary}; color: #fff; padding: 12px 14px; border-radius: 4px; font-weight: 700; font-size: 16px; margin-top: 6px; }
-    .balance-box { border: 1px solid ${colors.primary}; border-radius: 6px; padding: 12px 14px; margin-top: 14px; }
-    .balance-owed { display: flex; justify-content: space-between; border-top: 1px solid ${colors.border}; padding-top: 8px; margin-top: 8px; font-weight: 700; font-size: 15px; }
+    .note-label { color: ${colors.textSecondary}; font-size: 12px; letter-spacing: 1px; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
+    .note-text { color: ${colors.textSecondary}; line-height: 1.5; white-space: pre-line; font-size: 14px; }
+    .totals { width: 320px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 15px; }
+    .bill-total { display: flex; justify-content: space-between; align-items: center; background: ${colors.primary}; color: #fff; padding: 18px 20px; border-radius: 10px; font-weight: 700; font-size: 20px; margin-top: 8px; }
+    .balance-split { display: flex; gap: 14px; margin-top: 16px; }
+    .balance-box { flex: 1; border-radius: 10px; padding: 16px 18px; }
+    .balance-box-label { color: ${colors.textSecondary}; font-size: 13px; margin-bottom: 5px; }
+    .balance-box-amount { font-weight: 700; font-size: 22px; }
     .owes { color: ${colors.owesMe}; }
     .credit { color: ${colors.iOwe}; }
-    .footer { margin-top: 28px; border-top: 1px solid ${colors.border}; padding-top: 14px; }
-    .footer-thanks { font-weight: 700; }
-    .footer-fine { color: ${colors.textSecondary}; margin-top: 6px; font-size: 10px; line-height: 1.5; }
+    .footer { margin-top: 32px; border-top: 1px solid ${colors.border}; padding-top: 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; }
+    .footer-thanks { font-weight: 600; font-style: italic; font-size: 15px; }
+    .footer-fine { color: ${colors.textSecondary}; font-size: 12px; white-space: nowrap; }
   `;
 }
 
@@ -128,7 +129,7 @@ export function buildBillHtml(data: BillDocumentData): string {
   const businessName = settings.businessName || DEFAULT_BUSINESS_NAME;
   const currency = settings.currencySymbol;
   const isCashOut = entry.direction === "cash_out";
-  const directionLabel = isCashOut ? "Cash out · Credit" : "Cash in · Payment";
+  const generatedDate = formatDisplayDate(new Date().toISOString());
 
   const header = `
     <div class="header">
@@ -136,16 +137,12 @@ export function buildBillHtml(data: BillDocumentData): string {
         ${logoCell({ logoUri: settings.logoUri, name: businessName })}
         <div>
           <div class="business-name">${escapeHtml(businessName)}</div>
-          ${settings.billFooterText ? `<div class="muted">${escapeHtml(settings.billFooterText)}</div>` : ""}
+          ${settings.billFooterText ? `<div class="business-line">${escapeHtml(settings.billFooterText)}</div>` : ""}
         </div>
       </div>
       <div class="doc-side">
         <div class="doc-type">${entry.type === "bill" ? "BILL" : "RECEIPT"}</div>
         <div class="doc-number">#${shortRef(entry.id)}</div>
-        <div class="meta">
-          Date&nbsp; ${formatDisplayDate(entry.entryDate)}<br/>
-          Entry&nbsp; ${directionLabel}
-        </div>
       </div>
     </div>`;
 
@@ -159,8 +156,8 @@ export function buildBillHtml(data: BillDocumentData): string {
       </div>
       <div class="party">
         <div class="party-label">Khata reference</div>
-        <div class="party-name">Customer #${shortRef(customer.id)}</div>
-        <div class="party-line">Ledger opened&nbsp; ${formatDisplayDate(customer.createdAt)}</div>
+        <div class="party-name">${formatDisplayDate(entry.entryDate)}</div>
+        <div class="party-line">Customer #${shortRef(customer.id)}</div>
         <div class="party-line">Last activity&nbsp; ${formatDisplayDate(data.lastActivityDate)}</div>
       </div>
     </div>`;
@@ -168,15 +165,14 @@ export function buildBillHtml(data: BillDocumentData): string {
   const rows =
     entry.type === "bill"
       ? entry.lineItems
-          .map((item, index) => {
+          .map((item) => {
             const hex = swatchHex(item.color);
             const sub = lineSubDescriptor(item);
             return `
         <tr>
-          <td class="idx">${index + 1}</td>
           <td>
-            <div class="item-desc">${escapeHtml(item.description)}</div>
-            ${sub ? `<div class="item-sub">${hex ? `<span class="swatch" style="background:${hex}"></span>` : ""}${escapeHtml(sub)}</div>` : ""}
+            <div class="item-desc">${hex ? `<span class="swatch" style="background:${hex}"></span>` : ""}${escapeHtml(item.description)}</div>
+            ${sub ? `<div class="item-sub">${escapeHtml(sub)}</div>` : ""}
           </td>
           <td class="num">${item.quantity}</td>
           <td class="num">${formatMoney(item.rate, currency)}</td>
@@ -186,7 +182,6 @@ export function buildBillHtml(data: BillDocumentData): string {
           .join("")
       : `
         <tr>
-          <td class="idx">1</td>
           <td><div class="item-desc">${escapeHtml(isCashOut ? "Gave on credit" : "Payment received")}</div>
           ${entry.note ? `<div class="item-sub">${escapeHtml(entry.note)}</div>` : ""}</td>
           <td class="num">1</td>
@@ -198,8 +193,7 @@ export function buildBillHtml(data: BillDocumentData): string {
     <table>
       <thead>
         <tr>
-          <th>#</th>
-          <th>Item description</th>
+          <th>Item</th>
           <th class="num">Qty</th>
           <th class="num">Rate</th>
           <th class="num">Amount</th>
@@ -211,8 +205,7 @@ export function buildBillHtml(data: BillDocumentData): string {
   const itemCount = entry.type === "bill" ? totalQuantity(entry) : 1;
   const balanceOwed = data.currentBalance;
   const balanceClass = balanceOwed > 0 ? "owes" : balanceOwed < 0 ? "credit" : "";
-  const thisBillSign = isCashOut ? "+" : "−";
-  const thisBillLabel = entry.type === "bill" ? "This bill (credit)" : isCashOut ? "This entry (credit)" : "This entry (payment)";
+  const balanceBg = balanceOwed > 0 ? colors.owesMeSoft : balanceOwed < 0 ? colors.iOweSoft : colors.surface;
 
   const totals = `
     <div class="totals-wrap">
@@ -222,21 +215,26 @@ export function buildBillHtml(data: BillDocumentData): string {
       <div class="totals">
         <div class="totals-row"><span class="muted">Subtotal (${itemCount} item${itemCount === 1 ? "" : "s"})</span><span>${formatMoney(entry.amount, currency)}</span></div>
         <div class="bill-total"><span>Bill total</span><span>${formatMoney(entry.amount, currency)}</span></div>
-        <div class="balance-box">
-          <div class="totals-row"><span class="muted">Previous balance</span><span>${formatMoney(data.previousBalance, currency)}</span></div>
-          <div class="totals-row"><span class="muted">${thisBillLabel}</span><span>${thisBillSign} ${formatMoney(entry.amount, currency)}</span></div>
-          <div class="balance-owed"><span>Balance owed</span><span class="${balanceClass}">${formatMoney(balanceOwed, currency)}</span></div>
-        </div>
+      </div>
+    </div>
+    <div class="balance-split">
+      <div class="balance-box" style="background:${colors.surface}">
+        <div class="balance-box-label">Previous balance</div>
+        <div class="balance-box-amount">${formatMoney(data.previousBalance, currency)}</div>
+      </div>
+      <div class="balance-box" style="background:${balanceBg}">
+        <div class="balance-box-label">Balance owed</div>
+        <div class="balance-box-amount ${balanceClass}">${formatMoney(balanceOwed, currency)}</div>
       </div>
     </div>`;
 
   const footer = `
     <div class="footer">
-      ${settings.billFooterText ? `<div class="footer-thanks">${escapeHtml(settings.billFooterText)}</div>` : `<div class="footer-thanks">Thank you for your business.</div>`}
-      <div class="footer-fine">This is a computer-generated ledger bill. Every entry is recorded with full change history; errors are reversible within the khata.</div>
+      ${settings.billFooterText ? `<div class="footer-thanks">${escapeHtml(settings.billFooterText)}</div>` : `<div class="footer-thanks">Thank you for shopping with us!</div>`}
+      <div class="footer-fine">Generated by Khata · ${generatedDate}</div>
     </div>`;
 
-  return htmlShell(documentStyles(), header + parties + table + totals + footer);
+  return htmlShell(documentStyles(), header + `<div class="content">` + parties + table + totals + footer + `</div>`);
 }
 
 export function buildBillText(data: BillDocumentData): string {
@@ -286,52 +284,52 @@ export function buildStatementHtml(data: StatementDocumentData): string {
         ${logoCell({ logoUri: settings.logoUri, name: businessName })}
         <div>
           <div class="business-name">${escapeHtml(businessName)}</div>
-          <div class="muted">Account statement</div>
+          ${settings.billFooterText ? `<div class="business-line">${escapeHtml(settings.billFooterText)}</div>` : ""}
         </div>
       </div>
       <div class="doc-side">
-        <div class="doc-type">STATEMENT</div>
-        <div class="doc-number">#${shortRef(customer.id)}</div>
-        <div class="meta">Generated&nbsp; ${formatDisplayDate(data.generatedAt)}</div>
-        ${
-          data.dateFrom || data.dateTo
-            ? `<div class="meta">Period&nbsp; ${data.dateFrom ? formatDisplayDate(data.dateFrom) : "Start"} – ${data.dateTo ? formatDisplayDate(data.dateTo) : "Today"}</div>`
-            : ""
-        }
+        <div class="doc-type">Ledger statement</div>
+        <div class="doc-number">#${shortRef(customer.id, "KH-LS-")}</div>
       </div>
     </div>`;
+
+  const periodStart = formatDisplayDate(data.dateFrom ?? data.openingBalanceDate);
+  const periodEnd = formatDisplayDate(data.dateTo ?? data.generatedAt);
+  const entriesLabel = `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`;
 
   const parties = `
     <div class="parties">
       <div class="party">
-        <div class="party-label">Customer</div>
+        <div class="party-label">Account</div>
         <div class="party-name">${escapeHtml(customer.name)}</div>
         ${customer.phone ? `<div class="party-line">${escapeHtml(customer.phone)}</div>` : ""}
-        ${customer.address ? `<div class="party-line">${escapeHtml(customer.address)}</div>` : ""}
       </div>
       <div class="party">
-        <div class="party-label">Ledger</div>
-        <div class="party-line">Opened&nbsp; ${formatDisplayDate(customer.createdAt)}</div>
-        <div class="party-line">Opening balance&nbsp; ${formatMoney(data.openingBalance, currency)}</div>
-        <div class="party-line">Entries&nbsp; ${rows.length}</div>
+        <div class="party-label">Statement period</div>
+        <div class="party-name">${periodStart} – ${periodEnd}</div>
+        <div class="party-line">${entriesLabel}</div>
       </div>
     </div>`;
+
+  const openingIsDebit = data.openingBalance > 0;
+  const openingDebit = openingIsDebit ? data.openingBalance : 0;
+  const openingCredit = !openingIsDebit && data.openingBalance < 0 ? -data.openingBalance : 0;
 
   const bodyRows = rows
     .map((row) => {
       const isCashOut = row.entry.direction === "cash_out";
       const label =
         row.entry.type === "bill"
-          ? `Bill #${shortRef(row.entry.id)} (${row.entry.lineItems.length} item${row.entry.lineItems.length === 1 ? "" : "s"})`
+          ? `Bill · ${row.entry.lineItems.length} item${row.entry.lineItems.length === 1 ? "" : "s"}`
           : isCashOut
-            ? "Gave on credit"
-            : "Payment received";
+            ? "Cash given"
+            : "Cash payment";
       return `
         <tr>
           <td>${formatDisplayDate(row.entry.entryDate)}</td>
           <td>${escapeHtml(label)}</td>
-          <td class="num">${isCashOut ? formatMoney(row.entry.amount, currency) : ""}</td>
-          <td class="num">${!isCashOut ? formatMoney(row.entry.amount, currency) : ""}</td>
+          <td class="num owes">${isCashOut ? formatMoney(row.entry.amount, currency) : "—"}</td>
+          <td class="num credit">${!isCashOut ? formatMoney(row.entry.amount, currency) : "—"}</td>
           <td class="num">${formatMoney(row.runningBalance, currency)}</td>
         </tr>`;
     })
@@ -342,9 +340,9 @@ export function buildStatementHtml(data: StatementDocumentData): string {
       <thead>
         <tr>
           <th>Date</th>
-          <th>Detail</th>
-          <th class="num">Credit given</th>
-          <th class="num">Payment</th>
+          <th>Description</th>
+          <th class="num">Debit</th>
+          <th class="num">Credit</th>
           <th class="num">Balance</th>
         </tr>
       </thead>
@@ -352,30 +350,39 @@ export function buildStatementHtml(data: StatementDocumentData): string {
         <tr>
           <td>${formatDisplayDate(data.openingBalanceDate)}</td>
           <td>Opening balance</td>
-          <td class="num"></td>
-          <td class="num"></td>
+          <td class="num owes">${openingDebit > 0 ? formatMoney(openingDebit, currency) : "—"}</td>
+          <td class="num credit">${openingCredit > 0 ? formatMoney(openingCredit, currency) : "—"}</td>
           <td class="num">${formatMoney(data.openingBalance, currency)}</td>
         </tr>
         ${bodyRows}
       </tbody>
     </table>`;
 
-  const balanceClass = data.currentBalance > 0 ? "owes" : data.currentBalance < 0 ? "credit" : "";
+  const debitTotal =
+    openingDebit + rows.filter((r) => r.entry.direction === "cash_out").reduce((sum, r) => sum + r.entry.amount, 0);
+  const creditTotal =
+    openingCredit + rows.filter((r) => r.entry.direction === "cash_in").reduce((sum, r) => sum + r.entry.amount, 0);
+
   const totals = `
-    <div class="totals-wrap">
-      <div class="note"></div>
-      <div class="totals">
-        <div class="bill-total"><span>Balance owed</span><span class="${balanceClass}" style="color:#fff">${formatMoney(data.currentBalance, currency)}</span></div>
+    <div class="balance-split">
+      <div class="balance-box" style="background:${colors.owesMeSoft}">
+        <div class="balance-box-label">Total debits</div>
+        <div class="balance-box-amount owes">${formatMoney(debitTotal, currency)}</div>
       </div>
-    </div>`;
+      <div class="balance-box" style="background:${colors.iOweSoft}">
+        <div class="balance-box-label">Total credits</div>
+        <div class="balance-box-amount credit">${formatMoney(creditTotal, currency)}</div>
+      </div>
+    </div>
+    <div class="bill-total" style="margin-top:14px"><span>Closing balance owed</span><span>${formatMoney(data.currentBalance, currency)}</span></div>`;
 
   const footer = `
     <div class="footer">
-      ${settings.billFooterText ? `<div class="footer-thanks">${escapeHtml(settings.billFooterText)}</div>` : `<div class="footer-thanks">Thank you for your business.</div>`}
-      <div class="footer-fine">This is a computer-generated statement. Every entry is recorded with full change history; errors are reversible within the khata.</div>
+      ${settings.billFooterText ? `<div class="footer-thanks">${escapeHtml(settings.billFooterText)}</div>` : `<div class="footer-thanks">Please clear dues at your earliest convenience.</div>`}
+      <div class="footer-fine">Generated by Khata · ${formatDisplayDate(data.generatedAt)}</div>
     </div>`;
 
-  return htmlShell(documentStyles(), header + parties + table + totals + footer);
+  return htmlShell(documentStyles(), header + `<div class="content">` + parties + table + totals + footer + `</div>`);
 }
 
 export function buildStatementText(data: StatementDocumentData): string {

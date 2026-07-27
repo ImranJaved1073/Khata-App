@@ -14,20 +14,21 @@ Source of truth for product scope is [`docs/Khata_app-Guide.pdf`](../../docs/Kha
 | Theming | `Appearance` API + `src/theme/ThemeContext.tsx` (`ThemeProvider`/`useTheme`), light/dark palettes in `src/theme/colors.ts`, mode (`system`\|`light`\|`dark`) persisted in `settings.themeMode` (Phase 6, built) |
 | PDF / share | `expo-print` (bill/statement → PDF), `expo-sharing` + WhatsApp/SMS deep links (Phase 5, built — `src/lib/documentFormat.ts` builds the HTML/text, `src/lib/share.ts` does the print/deep-link/share plumbing) |
 | Export | `xlsx` for Excel, hand-rolled CSV writer, saved via `expo-file-system/legacy` then shared (Phase 5, built — `src/lib/exportData.ts` + `src/lib/exportFile.ts`) |
+| App icon / splash | `expo-splash-screen` config plugin (Phase 7 — `app.json`'s `plugins` array: `image`/`imageWidth`/`resizeMode`/`backgroundColor`); `assets/icon.png`, `favicon.png`, `android-icon-foreground.png`, `android-icon-monochrome.png`, `splash-icon.png` are all generated (not hand-drawn) by rendering an HTML/CSS composition of the Ionicons `book` glyph through headless Chrome/Edge — see `.claude/docs/skills.md` |
 
 ## Why these choices
 
 - **Money is always an integer (paisa/cents), never a float.** Every `amount`, `rate`, `openingBalance` field is `number` but represents whole paisa. Never multiply/divide by 100 with floating point — this is the #1 way to reintroduce the rounding bugs this app exists to eliminate.
 - **Balance is never stored as an editable truth.** `customer.balance = openingBalance + Σ(cash_out) − Σ(cash_in)`, always recomputed from `entries` (see [`data-model.md`](data-model.md)). Never add a mutable `balance` column to `customers`.
 - **Every mutation writes an audit_log row.** Create/edit/delete on a customer, entry, or line_item is not "done" until `logAudit(...)` has been called for it. See [`skills.md`](skills.md#adding-a-mutation) for the pattern.
-- **Deletes are soft.** `entries.is_deleted` hides a row from normal queries but keeps it for history/audit. Never `DELETE FROM` a customer or entry row.
+- **Deletes are soft.** `entries.is_deleted` hides a row from normal queries but keeps it for history/audit. Never `DELETE FROM` a customer or entry row — with one narrow exception: a customer that has **zero entries** (nothing to protect) can be permanently removed via `deleteCustomer()` (`customerRepository.ts`), still logging an audit `delete` row first. The instant a customer has any entry, only `setCustomerArchived()` (soft-hide) is allowed. `customerHasEntries()` is what callers check to decide which action applies — `CustomerFormScreen`'s single Archive/Delete button switches on it, and `CustomerListScreen`'s long-press context menu's "Delete" option falls back to archiving (with an explanatory message) if the customer turns out to have entries.
 - **Offline-first, sync-ready.** No network calls exist in v1. The repository layer (`src/repositories/`) is the only thing screens talk to — it's the seam where a future sync layer would slot in, so don't let screens query the `db` client directly.
 
 ## Folder structure
 
 ```
 src/
-  db/            schema.ts (5 Drizzle tables), client.ts (expo-sqlite + drizzle), drizzle/ (generated migrations — don't hand-edit), seed.ts
+  db/            schema.ts (5 Drizzle tables), client.ts (expo-sqlite + drizzle), drizzle/ (generated migrations — don't hand-edit)
   repositories/  the only layer allowed to import db/client.ts or db/schema.ts directly
   types/models.ts  app-facing TS types (camelCase), separate from the DB row shape
   i18n/          i18next bootstrap + en/ur resource files

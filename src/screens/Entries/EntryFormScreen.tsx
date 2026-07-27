@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { AppStateStatus, StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -17,9 +19,24 @@ import type { RouteProp } from "@react-navigation/native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import { DateField } from "../../components/DateField";
 import { db } from "../../db/client";
+import type { CalculatorState } from "../../lib/calculator";
+import {
+  backspace as calcBackspace,
+  clear as calcClear,
+  createCalculatorState,
+  displayValuePaisa,
+  expressionLabel,
+  inputDecimalPoint,
+  inputDigit,
+  inputEquals,
+  inputOperator,
+  inputPercent,
+} from "../../lib/calculator";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
+import { getCustomer } from "../../repositories/customerRepository";
 import { generateLineItemDescription } from "../../repositories/description";
 import { createEntry, getEntry, updateEntry } from "../../repositories/entryRepository";
 import { newId } from "../../repositories/ids";
@@ -28,6 +45,7 @@ import type { EntryDirection, LineItem } from "../../types/models";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
+import { CalculatorKeypad } from "./CalculatorKeypad";
 import type { BillLineItemState } from "./BillLineItemCard";
 import {
   BillLineItemCard,
@@ -117,8 +135,9 @@ export function EntryFormScreen() {
 
   const [loading, setLoading] = useState(isEditMode);
   const [direction, setDirection] = useState<EntryDirection>("cash_out");
-  const [amountInput, setAmountInput] = useState(formatMoneyInput(0));
+  const [calc, setCalc] = useState<CalculatorState>(() => createCalculatorState(0));
   const [entryDate, setEntryDate] = useState(todayDate());
+  const autoTodayRef = useRef(entryDate);
   const [note, setNote] = useState("");
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [lineItems, setLineItems] = useState<BillLineItemState[]>([]);
@@ -130,12 +149,16 @@ export function EntryFormScreen() {
   const [amountError, setAmountError] = useState<string | null>(null);
   const [billError, setBillError] = useState<string | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
+  const [customerName, setCustomerName] = useState("");
 
   useEffect(() => {
     getSettings(db)
       .then((settings) => setCurrencySymbol(settings.currencySymbol))
       .catch((error: Error) => console.error(error));
-  }, []);
+    getCustomer(db, customerId)
+      .then((customer) => setCustomerName(customer?.name ?? ""))
+      .catch((error: Error) => console.error(error));
+  }, [customerId]);
 
   useEffect(() => {
     if (!entryId) return;
@@ -147,7 +170,7 @@ export function EntryFormScreen() {
         setAttachmentUri(entry.attachmentUri);
         if (entry.type === "simple") {
           setDirection(entry.direction);
-          setAmountInput(formatMoneyInput(entry.amount));
+          setCalc(createCalculatorState(entry.amount));
         } else {
           const items = entry.lineItems.map(lineItemStateFromModel);
           setLineItems(items);
@@ -161,14 +184,50 @@ export function EntryFormScreen() {
       .finally(() => setLoading(false));
   }, [entryId, t]);
 
+  // The date field defaults to "today" once at mount and is otherwise left for the user to edit.
+  // If this screen is left open across midnight (backgrounded mid-bill, resumed the next day),
+  // that mount-time default would silently keep pointing at yesterday. On resume, bump it forward
+  // — but only if the user hasn't since picked a date of their own, and only for a brand-new entry
+  // (edit mode's date comes from the saved record, not this default).
+  useEffect(() => {
+    if (isEditMode) return;
+    const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
+      if (nextState !== "active") return;
+      const current = todayDate();
+      if (current === autoTodayRef.current) return;
+      setEntryDate((prev) => (prev === autoTodayRef.current ? current : prev));
+      autoTodayRef.current = current;
+    });
+    return () => subscription.remove();
+  }, [isEditMode]);
+
   useEffect(() => {
     navigation.setOptions({
       title:
         mode === "bill"
           ? t(isEditMode ? "entry.editBillTitle" : "entry.newBillTitle")
-          : t(isEditMode ? "entry.editEntryTitle" : "khata.newEntry"),
+          : t(isEditMode ? "entry.editEntryTitle" : "entry.simpleEntryTitle"),
+      headerLeft: () => (
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.close")}
+          hitSlop={8}
+          style={styles.closeButton}
+        >
+          <Ionicons name="close" size={26} color={colors.textPrimary} />
+        </Pressable>
+      ),
+      headerRight:
+        mode === "bill"
+          ? () => (
+              <Text style={styles.headerCustomerName} numberOfLines={1}>
+                {customerName}
+              </Text>
+            )
+          : undefined,
     });
-  }, [navigation, mode, isEditMode, t]);
+  }, [navigation, mode, isEditMode, t, colors, styles, customerName]);
 
   function applyLineCommit(next: BillLineItemState[]) {
     setLineItems(next);
@@ -216,8 +275,13 @@ export function EntryFormScreen() {
     }
   }
 
+  function finalCalcAmount(): number {
+    const settled = calc.pendingOperator ? inputEquals(calc) : calc;
+    return displayValuePaisa(settled);
+  }
+
   async function handleSaveSimple() {
-    const amount = parseMoneyInput(amountInput);
+    const amount = finalCalcAmount();
     if (amount <= 0) {
       setAmountError(t("entry.amountRequired"));
       return;
@@ -285,8 +349,9 @@ export function EntryFormScreen() {
           attachmentUri,
           lineItems: mappedLineItems,
         });
+        navigation.goBack();
       } else {
-        await createEntry(db, {
+        const created = await createEntry(db, {
           type: "bill",
           customerId,
           direction: "cash_out",
@@ -295,8 +360,8 @@ export function EntryFormScreen() {
           attachmentUri,
           lineItems: mappedLineItems,
         });
+        navigation.replace("BillSaved", { entryId: created.id });
       }
-      navigation.goBack();
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
@@ -328,11 +393,31 @@ export function EntryFormScreen() {
 
   if (mode === "bill") {
     return (
+      <View style={styles.container}>
       <ScrollView
-        style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.dateNoteRow}>
+          <DateField value={entryDate} onChange={setEntryDate} style={styles.dateNoteField} />
+
+          <Pressable
+            style={[styles.attachmentButton, styles.dateNoteField]}
+            onPress={handlePickAttachment}
+            accessibilityRole="button"
+            accessibilityLabel={t("entry.attachment")}
+          >
+            {attachmentUri ? (
+              <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
+            ) : (
+              <Ionicons name="camera-outline" size={18} color={colors.primary} />
+            )}
+            <Text style={styles.attachmentButtonText} numberOfLines={1}>
+              {t("entry.attachment")}
+            </Text>
+          </Pressable>
+        </View>
+
         {lineItems
           .filter((item) => item.key !== activeLine.key)
           .map((item) => (
@@ -358,63 +443,30 @@ export function EntryFormScreen() {
           accessibilityRole="button"
           accessibilityLabel={t("entry.addLine")}
         >
+          <Ionicons name="add" size={18} color={colors.primary} />
           <Text style={styles.addLineButtonText}>{t("entry.addLine")}</Text>
         </Pressable>
 
-        <Field label={t("entry.date")}>
-          <View style={styles.dateRow}>
-            <TextInput
-              value={entryDate}
-              onChangeText={setEntryDate}
-              style={[styles.input, styles.dateInput]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textSecondary}
-            />
-            <Pressable
-              style={styles.todayButton}
-              onPress={() => setEntryDate(todayDate())}
-              accessibilityRole="button"
-              accessibilityLabel={t("entry.today")}
-            >
-              <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
-            </Pressable>
+        <View style={styles.noteHeaderRow}>
+          <Text style={styles.fieldLabel}>{t("entry.note")}</Text>
+          <View style={styles.autoNoteHint}>
+            <Ionicons name="sparkles" size={12} color={colors.primary} />
+            <Text style={styles.autoNoteHintText}>{t("entry.autoFromAllItems")}</Text>
           </View>
-        </Field>
-
-        <Field label={t("entry.note")}>
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            style={[styles.input, styles.multilineInput]}
-            placeholder={t("entry.note")}
-            placeholderTextColor={colors.textSecondary}
-            multiline
-          />
-        </Field>
-
-        <Pressable
-          style={styles.attachmentButton}
-          onPress={handlePickAttachment}
-          accessibilityRole="button"
-          accessibilityLabel={t("entry.attachment")}
-        >
-          {attachmentUri ? (
-            <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
-          ) : (
-            <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
-          )}
-          <Text style={styles.attachmentButtonText}>{t("entry.attachment")}</Text>
-        </Pressable>
-
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{t("entry.total")}</Text>
-          <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit>
-            {formatMoney(billTotal, currencySymbol)}
-          </Text>
         </View>
+        <TextInput
+          value={note}
+          onChangeText={setNote}
+          style={[styles.input, styles.multilineInput]}
+          placeholder={t("entry.note")}
+          placeholderTextColor={colors.textSecondary}
+          multiline
+        />
 
         {billError ? <Text style={styles.errorText}>{billError}</Text> : null}
+      </ScrollView>
 
+      <View style={styles.footer}>
         <Pressable
           style={styles.saveButton}
           onPress={handleSaveBill}
@@ -425,94 +477,103 @@ export function EntryFormScreen() {
           {saving ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>{t("entry.save")}</Text>
+            <Text style={styles.saveButtonText} numberOfLines={1} adjustsFontSizeToFit>
+              {t("entry.saveBillWithTotal", { amount: formatMoney(billTotal, currencySymbol) })}
+            </Text>
           )}
         </Pressable>
-      </ScrollView>
+      </View>
+      </View>
     );
   }
 
+  const directionColor = direction === "cash_out" ? colors.owesMe : colors.iOwe;
+  const expression = expressionLabel(calc);
+  const displayAmount = displayValuePaisa(calc);
+
   return (
+    <View style={styles.container}>
     <ScrollView
-      style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.directionRow}>
         <DirectionOption
-          label={t("entry.gaveOnCredit")}
+          label={t("entry.directionOut")}
           active={direction === "cash_out"}
           color={colors.owesMe}
           onPress={() => setDirection("cash_out")}
         />
         <DirectionOption
-          label={t("entry.receivedPayment")}
+          label={t("entry.directionIn")}
           active={direction === "cash_in"}
           color={colors.iOwe}
           onPress={() => setDirection("cash_in")}
         />
       </View>
 
-      <Field label={t("entry.amount")} required>
-        <TextInput
-          value={amountInput}
-          onChangeText={(text) => {
-            setAmountInput(text);
-            if (amountError) setAmountError(null);
-          }}
-          style={styles.input}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
-          placeholderTextColor={colors.textSecondary}
-        />
-        {amountError ? <Text style={styles.errorText}>{amountError}</Text> : null}
-      </Field>
+      {expression ? <Text style={styles.expressionText}>{expression}</Text> : null}
+      <Text
+        style={[styles.amountDisplay, { color: directionColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {formatMoney(displayAmount, currencySymbol)}
+      </Text>
+      {amountError ? (
+        <Text style={[styles.errorText, styles.amountError]}>{amountError}</Text>
+      ) : null}
 
-      <Field label={t("entry.date")}>
-        <View style={styles.dateRow}>
+      <View style={styles.dateNoteRow}>
+        <DateField
+          value={entryDate}
+          onChange={setEntryDate}
+          label={t("entry.date")}
+          style={styles.dateNoteField}
+        />
+
+        <Field label={t("entry.note")} style={styles.dateNoteField}>
           <TextInput
-            value={entryDate}
-            onChangeText={setEntryDate}
-            style={[styles.input, styles.dateInput]}
-            placeholder="YYYY-MM-DD"
+            value={note}
+            onChangeText={setNote}
+            style={styles.input}
+            placeholder={t("entry.note")}
             placeholderTextColor={colors.textSecondary}
           />
-          <Pressable
-            style={styles.todayButton}
-            onPress={() => setEntryDate(todayDate())}
-            accessibilityRole="button"
-            accessibilityLabel={t("entry.today")}
-          >
-            <Text style={styles.todayButtonText}>{t("entry.today")}</Text>
-          </Pressable>
-        </View>
-      </Field>
+        </Field>
+      </View>
 
-      <Field label={t("entry.note")}>
-        <TextInput
-          value={note}
-          onChangeText={setNote}
-          style={[styles.input, styles.multilineInput]}
-          placeholder={t("entry.note")}
-          placeholderTextColor={colors.textSecondary}
-          multiline
-        />
-      </Field>
-
-      <Pressable
-        style={styles.saveButton}
-        onPress={handleSaveSimple}
-        disabled={saving}
-        accessibilityRole="button"
-        accessibilityLabel={t("entry.save")}
-      >
-        {saving ? (
-          <ActivityIndicator color={colors.onPrimary} />
-        ) : (
-          <Text style={styles.saveButtonText}>{t("entry.save")}</Text>
-        )}
-      </Pressable>
+      <CalculatorKeypad
+        accentColor={directionColor}
+        onDigit={(digit) => {
+          setCalc((prev) => inputDigit(prev, digit));
+          if (amountError) setAmountError(null);
+        }}
+        onPoint={() => setCalc((prev) => inputDecimalPoint(prev))}
+        onOperator={(op) => setCalc((prev) => inputOperator(prev, op))}
+        onPercent={() => setCalc((prev) => inputPercent(prev))}
+        onClear={() => setCalc(() => calcClear())}
+        onBackspace={() => setCalc((prev) => calcBackspace(prev))}
+        onEquals={() => setCalc((prev) => inputEquals(prev))}
+      />
     </ScrollView>
+
+      <View style={styles.footer}>
+        <Pressable
+          style={[styles.saveButton, { backgroundColor: directionColor }]}
+          onPress={handleSaveSimple}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel={t("entry.save")}
+        >
+          {saving ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.saveButtonText}>{t("entry.saveEntry")}</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -531,10 +592,7 @@ function DirectionOption({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable
-      style={[
-        styles.directionOption,
-        active && { backgroundColor: color, borderColor: color },
-      ]}
+      style={[styles.directionOption, active && { backgroundColor: color }]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -550,16 +608,18 @@ function DirectionOption({
 function Field({
   label,
   required,
+  style,
   children,
 }: {
   label: string;
   required?: boolean;
+  style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, style]}>
       <Text style={styles.fieldLabel}>
         {label}
         {required ? " *" : ""}
@@ -584,9 +644,23 @@ const makeStyles = (colors: AppColors) =>
   content: {
     padding: theme.spacing.md,
   },
+  closeButton: {
+    paddingHorizontal: theme.spacing.sm,
+  },
+  headerCustomerName: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+    marginEnd: theme.spacing.md,
+    maxWidth: 120,
+  },
   directionRow: {
     flexDirection: "row",
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    padding: theme.spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     marginBottom: theme.spacing.lg,
   },
   directionOption: {
@@ -594,26 +668,24 @@ const makeStyles = (colors: AppColors) =>
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.sm,
     borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   directionOptionText: {
     ...theme.typography.body,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     textAlign: "center",
+    fontWeight: "600",
   },
   directionOptionTextActive: {
     color: colors.onPrimary,
-    fontWeight: "600",
   },
   field: {
     marginBottom: theme.spacing.md,
   },
   fieldLabel: {
     ...theme.typography.body,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     marginBottom: theme.spacing.xs,
   },
   input: {
@@ -630,25 +702,29 @@ const makeStyles = (colors: AppColors) =>
     minHeight: 80,
     textAlignVertical: "top",
   },
-  dateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
+  expressionText: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: theme.spacing.xs,
   },
-  dateInput: {
-    flex: 1,
-  },
-  todayButton: {
-    paddingHorizontal: theme.spacing.md,
+  amountDisplay: {
+    fontSize: 40,
+    fontWeight: "700",
+    textAlign: "center",
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: theme.spacing.md,
   },
-  todayButtonText: {
-    ...theme.typography.caption,
-    color: colors.textPrimary,
+  amountError: {
+    textAlign: "center",
+  },
+  dateNoteRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  dateNoteField: {
+    flex: 1,
   },
   errorText: {
     ...theme.typography.caption,
@@ -656,10 +732,15 @@ const makeStyles = (colors: AppColors) =>
     marginTop: theme.spacing.xs,
     marginBottom: theme.spacing.sm,
   },
+  footer: {
+    padding: theme.spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
   saveButton: {
-    marginTop: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.lg,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
@@ -667,15 +748,18 @@ const makeStyles = (colors: AppColors) =>
   saveButtonText: {
     ...theme.typography.body,
     color: colors.onPrimary,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   addLineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
     paddingVertical: theme.spacing.sm,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
+    borderStyle: "dashed",
     marginBottom: theme.spacing.lg,
   },
   addLineButtonText: {
@@ -683,41 +767,42 @@ const makeStyles = (colors: AppColors) =>
     color: colors.primary,
     fontWeight: "600",
   },
+  noteHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.xs,
+  },
+  autoNoteHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  autoNoteHintText: {
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: "600",
+  },
   attachmentButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm,
+    justifyContent: "center",
+    gap: theme.spacing.xs,
     paddingVertical: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    marginBottom: theme.spacing.md,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
   },
   attachmentButtonText: {
-    ...theme.typography.body,
-    color: colors.textSecondary,
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: "600",
   },
   attachmentThumb: {
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderRadius: theme.radius.sm,
-  },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  totalLabel: {
-    ...theme.typography.heading,
-    color: colors.textPrimary,
-  },
-  totalAmount: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: colors.textPrimary,
   },
 });

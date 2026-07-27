@@ -11,6 +11,14 @@ npx expo export --platform android   # then rm -rf dist — it's build output, g
 ```
 `npx expo-doctor` should report 20/20 checks passing before you consider a dependency change done.
 
+## Regenerating app icon / splash assets
+There's no design tool or image-generation model in this environment, so `assets/icon.png`, `favicon.png`, `android-icon-foreground.png`, `android-icon-monochrome.png`, and `splash-icon.png` are produced by rendering an HTML/CSS composition through headless Edge (same binary as the PDF preview technique below) and reading the PNG back:
+1. Write an HTML file that `@font-face`s the Ionicons TTF directly (`node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf`, via an absolute `file:///` URL) and renders the glyph as an HTML entity (e.g. `&#61861;` for `book` — cross-check the decimal codepoint against `Ionicons.json` in that same `glyphmaps/` folder, not just the name).
+2. For an opaque asset (`icon.png`, `favicon.png`, the solid background layer), screenshot normally. For a **transparent** asset (the Android adaptive-icon foreground/monochrome layers, or anything meant to float over a differently-colored background), add `--default-background-color=00000000` to the `msedge.exe` invocation — without it, headless Chrome/Edge fills the canvas white regardless of CSS `background: transparent`. Verify the result actually has alpha (not just an RGBA-typed PNG with alpha always 255) by reading pixels back with `pngjs` (already a transitive dependency — `require` it via its absolute `node_modules` path if running the script from outside the project root) rather than trusting the file visually.
+3. `--window-size` sets the exact output pixel size 1:1 (use `--force-device-scale-factor=1`); add `--virtual-time-budget=3000` so the `@font-face` load finishes before the screenshot fires.
+4. If a composed image (icon + wordmark + tagline, like the splash) needs to be used with `expo-splash-screen`'s `imageWidth`, crop it tight to its actual non-transparent content first — `imageWidth` scales the whole image file, so a small content cluster centered in a mostly-empty canvas renders far smaller on-device than intended. A short `pngjs`-based bounding-box crop script (scan for the first/last non-zero-alpha row/column, slice, re-encode) handles this; there's no ImageMagick or `sharp` in this environment.
+5. There's no OS-level image resizer either — a same-ratio downscale (e.g. supersampling a small target like `favicon.png` at 10x and shrinking) needs a hand-rolled alpha-weighted box-downsample, also via `pngjs`.
+
 ## Changing the schema
 1. Edit `src/db/schema.ts`.
 2. `npx drizzle-kit generate` — produces a new numbered `.sql` file + updates `src/db/drizzle/meta/` and `migrations.js`. Never hand-edit anything under `src/db/drizzle/`.

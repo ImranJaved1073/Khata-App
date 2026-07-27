@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 
 import type { Database } from "../db/client";
 import { customers, entries as entriesTable } from "../db/schema";
-import type { EntryDirection, IsoTimestamp, Paisa } from "../types/models";
+import type { EntryDirection, EntryType, IsoTimestamp, Paisa } from "../types/models";
 import { listCustomersWithBalance } from "./customerRepository";
 
 export interface DashboardTotals {
@@ -34,6 +34,7 @@ export interface TodaysEntry {
   customerId: string;
   customerName: string;
   direction: EntryDirection;
+  type: EntryType;
   amount: Paisa;
   entryDate: string;
   createdAt: IsoTimestamp;
@@ -49,6 +50,7 @@ export async function listTodaysEntries(
       customerId: entriesTable.customerId,
       customerName: customers.name,
       direction: entriesTable.direction,
+      type: entriesTable.type,
       amount: entriesTable.amount,
       entryDate: entriesTable.entryDate,
       createdAt: entriesTable.createdAt,

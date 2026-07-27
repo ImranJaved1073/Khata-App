@@ -10,25 +10,35 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LanguageSelector } from "../../components/LanguageSelector";
-import { ThemeModeSelector } from "../../components/ThemeModeSelector";
 import { db } from "../../db/client";
 import { setAppLanguage } from "../../i18n";
 import { isBiometricAvailable, PIN_LENGTH, setOnboarded, setPin } from "../../lib/appLock";
 import { updateSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
+import { darkColors, lightColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
-import type { AppLanguage } from "../../types/models";
+import type { AppLanguage, ThemeMode } from "../../types/models";
 
 const STEP_COUNT = 3;
+const CURRENCY_PRESETS = ["Rs", "₹", "৳", "$"];
+const PIN_KEYPAD_ROWS: (string | "backspace" | null)[][] = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  [null, "0", "backspace"],
+];
 
 export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const { t } = useTranslation();
   const { colors, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState(0);
   const [businessName, setBusinessName] = useState("");
@@ -36,6 +46,7 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   const [language, setLanguage] = useState<AppLanguage>("en");
   const [pin, setPinInput] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [pinStage, setPinStage] = useState<"enter" | "confirm">("enter");
   const [pinError, setPinError] = useState<string | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -47,31 +58,68 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
       .catch((error: Error) => console.error(error));
   }, []);
 
-  async function finish() {
-    if (pin.length > 0 || confirmPin.length > 0) {
-      if (pin.length !== PIN_LENGTH) {
-        setPinError(t("onboarding.pinLength"));
-        return;
-      }
-      if (pin !== confirmPin) {
+  const pinConfirmed = pin.length === PIN_LENGTH && confirmPin.length === PIN_LENGTH && pin === confirmPin;
+
+  function handlePinDigit(digit: string) {
+    if (pinStage === "enter") {
+      const next = (pin + digit).slice(0, PIN_LENGTH);
+      setPinInput(next);
+      if (next.length === PIN_LENGTH) setPinStage("confirm");
+      return;
+    }
+    const next = (confirmPin + digit).slice(0, PIN_LENGTH);
+    setConfirmPin(next);
+    if (next.length === PIN_LENGTH) {
+      if (next === pin) {
+        setPinError(null);
+      } else {
         setPinError(t("onboarding.pinMismatch"));
+        setConfirmPin("");
+      }
+    }
+  }
+
+  function handlePinBackspace() {
+    if (pinStage === "confirm") {
+      if (confirmPin.length === 0) {
+        setPinStage("enter");
+        setPinInput((current) => current.slice(0, -1));
         return;
       }
+      setConfirmPin((current) => current.slice(0, -1));
+      return;
+    }
+    setPinInput((current) => current.slice(0, -1));
+  }
+
+  function clearPinEntry() {
+    setPinInput("");
+    setConfirmPin("");
+    setPinStage("enter");
+    setPinError(null);
+  }
+
+  async function finish(options?: { skipPin?: boolean }) {
+    const skipPin = options?.skipPin ?? false;
+    if (!skipPin && (pin.length > 0 || confirmPin.length > 0) && !pinConfirmed) {
+      setPinError(t("onboarding.pinMismatch"));
+      return;
     }
     setPinError(null);
     setSaving(true);
     try {
+      const setsPin = !skipPin && pinConfirmed;
       await updateSettings(db, {
         businessName: businessName.trim() || null,
         currencySymbol: currencySymbol.trim() || "Rs",
         language,
         themeMode: mode,
-        biometricEnabled: pin.length > 0 && biometricEnabled,
+        biometricEnabled: setsPin && biometricEnabled,
       });
 
       const rtlChanged = await setAppLanguage(language);
 
-      if (pin.length === PIN_LENGTH) {
+      if (setsPin) {
         await setPin(pin);
       }
       await setOnboarded();
@@ -86,10 +134,20 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      if (!skipPin) clearPinEntry();
     } finally {
       setSaving(false);
     }
   }
+
+  // A matched PIN finishes onboarding immediately, the same way a correct PIN
+  // auto-unlocks LockScreen — step 3 has no explicit confirm/finish button.
+  useEffect(() => {
+    if (pinConfirmed && !saving) {
+      finish();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinConfirmed]);
 
   function goNext() {
     setStep((current) => Math.min(current + 1, STEP_COUNT - 1));
@@ -99,23 +157,54 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
     setStep((current) => Math.max(current - 1, 0));
   }
 
+  function handleSkip() {
+    if (step === STEP_COUNT - 1) {
+      finish({ skipPin: true });
+      return;
+    }
+    setStep(STEP_COUNT - 1);
+  }
+
+  const isLastStep = step === STEP_COUNT - 1;
+  const showBiometricRow = isLastStep && biometricAvailable;
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.progressRow}>
-        {Array.from({ length: STEP_COUNT }).map((_, index) => (
-          <View
-            key={index}
-            style={[styles.progressDot, index <= step && styles.progressDotActive]}
-          />
-        ))}
+    <View style={styles.screen}>
+      <View style={[styles.topRow, { paddingTop: insets.top + theme.spacing.lg }]}>
+        <View style={styles.progressRow}>
+          {Array.from({ length: STEP_COUNT }).map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.progressDot,
+                index < step && styles.progressDotDone,
+                index === step && styles.progressDotActive,
+              ]}
+            />
+          ))}
+        </View>
+        {step > 0 ? (
+          <Pressable
+            onPress={handleSkip}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel={t("onboarding.skip")}
+          >
+            <Text style={styles.skipText}>{t("onboarding.skip")}</Text>
+          </Pressable>
+        ) : null}
       </View>
 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
       {step === 0 ? (
         <View>
+          <View style={styles.iconBox}>
+            <Ionicons name="book" size={32} color={colors.accent} />
+          </View>
           <Text style={styles.title}>{t("onboarding.welcomeTitle")}</Text>
           <Text style={styles.subtitle}>{t("onboarding.welcomeSubtitle")}</Text>
 
@@ -130,13 +219,30 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </Field>
 
           <Field label={t("onboarding.currency")}>
-            <TextInput
-              value={currencySymbol}
-              onChangeText={setCurrencySymbol}
-              style={styles.input}
-              placeholder="Rs"
-              placeholderTextColor={colors.textSecondary}
-            />
+            <View style={styles.currencyChipRow}>
+              {CURRENCY_PRESETS.map((preset) => (
+                <Pressable
+                  key={preset}
+                  style={[
+                    styles.currencyChip,
+                    currencySymbol === preset && styles.currencyChipActive,
+                  ]}
+                  onPress={() => setCurrencySymbol(preset)}
+                  accessibilityRole="button"
+                  accessibilityLabel={preset}
+                  accessibilityState={{ selected: currencySymbol === preset }}
+                >
+                  <Text
+                    style={[
+                      styles.currencyChipText,
+                      currencySymbol === preset && styles.currencyChipTextActive,
+                    ]}
+                  >
+                    {preset}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </Field>
 
           <Field label={t("onboarding.language")}>
@@ -148,9 +254,29 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
       {step === 1 ? (
         <View>
           <Text style={styles.title}>{t("onboarding.appearanceTitle")}</Text>
-          <Field label={t("onboarding.theme")}>
-            <ThemeModeSelector value={mode} onChange={setMode} />
-          </Field>
+          <Text style={styles.subtitle}>{t("onboarding.appearanceSubtitle")}</Text>
+
+          <ThemeOption
+            mode="light"
+            active={mode === "light"}
+            label={t("settings.themeLight")}
+            hint={t("onboarding.themeLightHint")}
+            onPress={() => setMode("light")}
+          />
+          <ThemeOption
+            mode="dark"
+            active={mode === "dark"}
+            label={t("settings.themeDark")}
+            hint={t("onboarding.themeDarkHint")}
+            onPress={() => setMode("dark")}
+          />
+          <ThemeOption
+            mode="system"
+            active={mode === "system"}
+            label={t("settings.themeSystem")}
+            hint={t("onboarding.themeSystemHint")}
+            onPress={() => setMode("system")}
+          />
         </View>
       ) : null}
 
@@ -159,92 +285,178 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           <Text style={styles.title}>{t("onboarding.securityTitle")}</Text>
           <Text style={styles.subtitle}>{t("onboarding.pinHint")}</Text>
 
-          <Field label={t("onboarding.pin")}>
-            <TextInput
-              value={pin}
-              onChangeText={(text) => {
-                setPinInput(text.replace(/[^0-9]/g, "").slice(0, PIN_LENGTH));
-                if (pinError) setPinError(null);
-              }}
-              style={styles.input}
-              placeholder="••••"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="number-pad"
-              secureTextEntry
-              maxLength={PIN_LENGTH}
-            />
-          </Field>
-
-          <Field label={t("onboarding.confirmPin")}>
-            <TextInput
-              value={confirmPin}
-              onChangeText={(text) => {
-                setConfirmPin(text.replace(/[^0-9]/g, "").slice(0, PIN_LENGTH));
-                if (pinError) setPinError(null);
-              }}
-              style={styles.input}
-              placeholder="••••"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="number-pad"
-              secureTextEntry
-              maxLength={PIN_LENGTH}
-            />
-            {pinError ? <Text style={styles.errorText}>{pinError}</Text> : null}
-          </Field>
-
-          {biometricAvailable && pin.length === PIN_LENGTH ? (
-            <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>{t("onboarding.enableBiometric")}</Text>
-              <Switch
-                value={biometricEnabled}
-                onValueChange={setBiometricEnabled}
-                trackColor={{ true: colors.primary, false: colors.border }}
-                thumbColor={colors.onPrimary}
-                accessibilityLabel={t("onboarding.enableBiometric")}
+          <Text style={styles.pinLabel}>
+            {pinStage === "enter" ? t("onboarding.pin") : t("onboarding.confirmPin")}
+          </Text>
+          <View style={styles.dotsRow}>
+            {Array.from({ length: PIN_LENGTH }).map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  index < (pinStage === "enter" ? pin.length : confirmPin.length) &&
+                    styles.dotFilled,
+                ]}
               />
+            ))}
+          </View>
+          {pinError ? <Text style={styles.errorText}>{pinError}</Text> : null}
+          {pinConfirmed ? (
+            <View style={styles.pinConfirmedRow}>
+              <ActivityIndicator color={colors.primary} />
             </View>
-          ) : null}
+          ) : (
+            <View style={styles.keypad}>
+              {PIN_KEYPAD_ROWS.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.keypadRow}>
+                  {row.map((key, keyIndex) => {
+                    if (key === null) return <View key={keyIndex} style={styles.key} />;
+                    if (key === "backspace") {
+                      return (
+                        <Pressable
+                          key={keyIndex}
+                          style={styles.key}
+                          onPress={handlePinBackspace}
+                          accessibilityRole="button"
+                          accessibilityLabel={t("lock.backspace")}
+                        >
+                          <Ionicons name="backspace-outline" size={22} color={colors.textPrimary} />
+                        </Pressable>
+                      );
+                    }
+                    return (
+                      <Pressable
+                        key={keyIndex}
+                        style={styles.key}
+                        onPress={() => handlePinDigit(key)}
+                        accessibilityRole="button"
+                        accessibilityLabel={key}
+                      >
+                        <Text style={styles.keyText} maxFontSizeMultiplier={1.3}>
+                          {key}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       ) : null}
+      </ScrollView>
 
-      <View style={styles.actions}>
-        {step > 0 ? (
-          <Pressable
-            style={[styles.button, styles.backButton]}
-            onPress={goBack}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.back")}
-          >
-            <Text style={styles.backButtonText}>{t("onboarding.back")}</Text>
-          </Pressable>
-        ) : null}
-        {step < STEP_COUNT - 1 ? (
-          <Pressable
-            style={[styles.button, styles.nextButton]}
-            onPress={goNext}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.next")}
-          >
-            <Text style={styles.nextButtonText}>{t("onboarding.next")}</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            style={[styles.button, styles.nextButton]}
-            onPress={finish}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={t("onboarding.finish")}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.onPrimary} />
-            ) : (
-              <Text style={styles.nextButtonText}>{t("onboarding.finish")}</Text>
-            )}
-          </Pressable>
-        )}
+      {!isLastStep ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + theme.spacing.md }]}>
+          <View style={styles.actions}>
+            {step > 0 ? (
+              <Pressable
+                style={[styles.button, styles.backButton]}
+                onPress={goBack}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel={t("onboarding.back")}
+              >
+                <Ionicons name="arrow-back" size={18} color={colors.textPrimary} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.button, styles.nextButton, styles.nextButtonFlex]}
+              onPress={goNext}
+              accessibilityRole="button"
+              accessibilityLabel={t("onboarding.next")}
+            >
+              <Text style={styles.nextButtonText}>{t("onboarding.next")}</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
+            </Pressable>
+          </View>
+        </View>
+      ) : showBiometricRow ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + theme.spacing.md }]}>
+          <View style={styles.switchRow}>
+            <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
+            <Text style={styles.switchLabel}>{t("onboarding.enableBiometric")}</Text>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={setBiometricEnabled}
+              trackColor={{ true: colors.primary, false: colors.border }}
+              thumbColor={colors.onPrimary}
+              accessibilityLabel={t("onboarding.enableBiometric")}
+            />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ThemeOption({
+  mode,
+  active,
+  label,
+  hint,
+  onPress,
+}: {
+  mode: ThemeMode;
+  active: boolean;
+  label: string;
+  hint: string;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  return (
+    <Pressable
+      style={[styles.themeOption, active && styles.themeOptionActive]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
+      <ThemePreview mode={mode} />
+      <View style={styles.themeOptionInfo}>
+        <Text style={styles.themeOptionLabel}>{label}</Text>
+        <Text style={styles.themeOptionHint}>{hint}</Text>
       </View>
-    </ScrollView>
+      <View style={[styles.radio, active && styles.radioActive]}>
+        {active ? <View style={styles.radioDot} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function ThemePreview({ mode }: { mode: ThemeMode }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  if (mode === "system") {
+    return (
+      <View style={[styles.themePreview, styles.themePreviewSplit]}>
+        <View style={[styles.themePreviewHalf, { backgroundColor: lightColors.background }]}>
+          <View style={[styles.themePreviewBar, { backgroundColor: lightColors.primary }]} />
+        </View>
+        <View style={[styles.themePreviewHalf, { backgroundColor: darkColors.background }]}>
+          <View style={[styles.themePreviewBar, { backgroundColor: darkColors.primary }]} />
+        </View>
+      </View>
+    );
+  }
+  const isDark = mode === "dark";
+  return (
+    <View
+      style={[
+        styles.themePreview,
+        { backgroundColor: isDark ? darkColors.background : lightColors.background },
+      ]}
+    >
+      <View
+        style={[
+          styles.themePreviewBar,
+          { backgroundColor: isDark ? darkColors.primary : lightColors.primary },
+        ]}
+      />
+    </View>
   );
 }
 
@@ -261,19 +473,32 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const makeStyles = (colors: AppColors) =>
   StyleSheet.create({
-    container: {
+    screen: {
       flex: 1,
       backgroundColor: colors.background,
     },
-    content: {
-      padding: theme.spacing.lg,
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.spacing.lg,
       flexGrow: 1,
+    },
+    bottomBar: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
+    },
+    topRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
     },
     progressRow: {
       flexDirection: "row",
-      gap: theme.spacing.sm,
-      marginBottom: theme.spacing.xl,
-      justifyContent: "center",
+      gap: theme.spacing.xs,
     },
     progressDot: {
       width: 8,
@@ -281,8 +506,25 @@ const makeStyles = (colors: AppColors) =>
       borderRadius: theme.radius.pill,
       backgroundColor: colors.border,
     },
-    progressDotActive: {
+    progressDotDone: {
       backgroundColor: colors.primary,
+    },
+    progressDotActive: {
+      width: 24,
+      backgroundColor: colors.accent,
+    },
+    skipText: {
+      ...theme.typography.body,
+      color: colors.textSecondary,
+    },
+    iconBox: {
+      width: 64,
+      height: 64,
+      borderRadius: theme.radius.lg,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: theme.spacing.lg,
     },
     title: {
       ...theme.typography.title,
@@ -312,46 +554,184 @@ const makeStyles = (colors: AppColors) =>
       paddingHorizontal: theme.spacing.md,
       paddingVertical: theme.spacing.sm,
     },
+    currencyChipRow: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+    },
+    currencyChip: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    currencyChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    currencyChipText: {
+      ...theme.typography.body,
+      color: colors.textPrimary,
+      fontWeight: "600",
+    },
+    currencyChipTextActive: {
+      color: colors.onPrimary,
+    },
+    themeOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      gap: theme.spacing.md,
+    },
+    themeOptionActive: {
+      borderColor: colors.primary,
+      borderWidth: 2,
+    },
+    themePreview: {
+      width: 56,
+      height: 72,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: theme.spacing.xs,
+      overflow: "hidden",
+    },
+    themePreviewSplit: {
+      flexDirection: "row",
+      padding: 0,
+    },
+    themePreviewHalf: {
+      flex: 1,
+      padding: theme.spacing.xs,
+    },
+    themePreviewBar: {
+      height: 6,
+      borderRadius: theme.radius.sm,
+    },
+    themeOptionInfo: {
+      flex: 1,
+    },
+    themeOptionLabel: {
+      ...theme.typography.heading,
+      color: colors.textPrimary,
+    },
+    themeOptionHint: {
+      ...theme.typography.caption,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    radio: {
+      width: 24,
+      height: 24,
+      borderRadius: theme.radius.pill,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    radioActive: {
+      borderColor: colors.primary,
+    },
+    radioDot: {
+      width: 12,
+      height: 12,
+      borderRadius: theme.radius.pill,
+      backgroundColor: colors.primary,
+    },
+    pinLabel: {
+      ...theme.typography.body,
+      color: colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    },
+    dotsRow: {
+      flexDirection: "row",
+      gap: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    dot: {
+      width: 16,
+      height: 16,
+      borderRadius: theme.radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    dotFilled: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
     errorText: {
       ...theme.typography.caption,
       color: colors.danger,
-      marginTop: theme.spacing.xs,
+      marginBottom: theme.spacing.sm,
+    },
+    pinConfirmedRow: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: theme.spacing.xl,
+    },
+    keypad: {
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.md,
+    },
+    keypadRow: {
+      flexDirection: "row",
+      gap: theme.spacing.sm,
+    },
+    key: {
+      flex: 1,
+      height: 56,
+      borderRadius: theme.radius.md,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    keyText: {
+      fontSize: 22,
+      fontWeight: "600",
+      color: colors.textPrimary,
     },
     switchRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: theme.spacing.sm,
+      gap: theme.spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
     },
     switchLabel: {
       ...theme.typography.body,
       color: colors.textPrimary,
       flex: 1,
-      marginEnd: theme.spacing.sm,
     },
     actions: {
       flexDirection: "row",
       gap: theme.spacing.sm,
-      marginTop: theme.spacing.xl,
     },
     button: {
-      flex: 1,
       paddingVertical: theme.spacing.sm,
       borderRadius: theme.radius.md,
       alignItems: "center",
       justifyContent: "center",
     },
     backButton: {
+      width: 48,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    backButtonText: {
-      ...theme.typography.body,
-      color: colors.textPrimary,
-    },
     nextButton: {
+      flexDirection: "row",
       backgroundColor: colors.primary,
+      gap: theme.spacing.sm,
+    },
+    nextButtonFlex: {
+      flex: 1,
     },
     nextButtonText: {
       ...theme.typography.body,

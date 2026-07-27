@@ -16,6 +16,8 @@ Schema changes go through Drizzle: edit `src/db/schema.ts`, then run `npx drizzl
 | isArchived | bool | soft-hide without deleting history |
 | createdAt / updatedAt | timestamp | |
 
+A customer with **zero entries** is the one exception to "customers are never hard-deleted" (see [`architecture.md`](architecture.md)) — `deleteCustomer()` (`customerRepository.ts`) permanently removes it, gated by `customerHasEntries()`. The moment a customer has any entry, only `setCustomerArchived()` applies.
+
 ## entries
 One movement of money for a customer, at a point in time.
 | field | type | notes |
@@ -66,10 +68,13 @@ Every create/edit/delete on a customer, entry, or line_item writes a row here �
 | id | uuid | PK |
 | entity | `customer` \| `entry` \| `line_item` | |
 | entityId | uuid | the affected record |
+| entryId | uuid? | parent entry id, set only on `entity: "line_item"` rows — see below |
 | action | `create` \| `edit` \| `delete` | |
 | diff | json? | old → new values for changed fields only (`buildDiff()`) |
 | actor | `owner` \| `helper` | who did it |
 | createdAt | timestamp | |
+
+`entryId` exists because `line_items` rows are hard-deleted on a bill edit (see above) — once a line is removed, its id no longer resolves to anything in `line_items`, so its own audit rows are the only surviving record of it. `EntryHistoryScreen` fetches an entry's full line-item history via `listLineItemAuditForEntry(db, entryId)` (`auditRepository.ts`), which filters `audit_log` by `entryId` directly rather than by walking the entry's *current* `lineItems` (which would silently omit any line since deleted). Any future code that needs "every line item that ever existed on this bill" should go through `entryId`, not `entry.lineItems`.
 
 ## settings (single row, id = 1)
 Business profile, locale, currency, theme, and app-lock config. Always fetched via `getSettings()` (creates the default row on first read) — never query the table directly.

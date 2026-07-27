@@ -11,7 +11,6 @@ import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import "./src/i18n";
 import { db } from "./src/db/client";
 import migrations from "./src/db/drizzle/migrations";
-import { seedDemoData } from "./src/db/seed";
 import { hasPin, isOnboarded, RELOCK_AFTER_MS } from "./src/lib/appLock";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { LockScreen } from "./src/screens/Lock/LockScreen";
@@ -29,20 +28,19 @@ interface BootState {
 
 export default function App() {
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
-  const [seedError, setSeedError] = useState<Error | null>(null);
+  const [bootError, setBootError] = useState<Error | null>(null);
   const [boot, setBoot] = useState<BootState | null>(null);
 
   useEffect(() => {
     if (!migrationsReady) return;
-    seedDemoData(db)
-      .then(() => Promise.all([getSettings(db), isOnboarded(), hasPin()]))
+    Promise.all([getSettings(db), isOnboarded(), hasPin()])
       .then(([settings, onboardedFlag, pinSet]) => {
         setBoot({ themeMode: settings.themeMode, onboarded: onboardedFlag, pinSet });
       })
-      .catch((error: Error) => setSeedError(error));
+      .catch((error: Error) => setBootError(error));
   }, [migrationsReady]);
 
-  const error = migrationError ?? seedError;
+  const error = migrationError ?? bootError;
   if (error) {
     return <BootScreen>{`Database setup failed: ${error.message}`}</BootScreen>;
   }
@@ -101,7 +99,7 @@ function ThemedApp({
     colors: {
       ...(scheme === "dark" ? DarkTheme : DefaultTheme).colors,
       background: colors.background,
-      card: colors.surface,
+      card: colors.background,
       text: colors.textPrimary,
       border: colors.border,
       primary: colors.primary,
@@ -133,7 +131,9 @@ function ThemedApp({
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         {content}
-        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        {/* Lock screen is a fixed navy identity regardless of theme (see LockScreen.tsx) — its
+            status bar must stay light even when the resolved app theme is otherwise light. */}
+        <StatusBar style={locked || scheme === "dark" ? "light" : "dark"} />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
