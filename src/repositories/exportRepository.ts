@@ -6,6 +6,10 @@ import { listEntriesForCustomer } from "./entryRepository";
 import { nowIso } from "./ids";
 import { getSettings } from "./settingsRepository";
 
+function sortByDateDescending(entries: ExportEntry[]): ExportEntry[] {
+  return [...entries].sort((a, b) => b.entry.entryDate.localeCompare(a.entry.entryDate));
+}
+
 export interface ExportEntry {
   customerName: string;
   entry: EntryWithLineItems;
@@ -32,12 +36,34 @@ export async function getExportData(db: Database): Promise<ExportData> {
       entries.push({ customerName: customer.name, entry });
     }
   }
-  entries.sort((a, b) => b.entry.entryDate.localeCompare(a.entry.entryDate));
 
   return {
     generatedAt: nowIso(),
     currencySymbol: settings.currencySymbol,
     customers,
-    entries,
+    entries: sortByDateDescending(entries),
+  };
+}
+
+/** Same shape as `getExportData`, scoped to a single customer — backs the khata screen's "Export statement" action. */
+export async function getCustomerExportData(
+  db: Database,
+  customerId: string,
+): Promise<ExportData | null> {
+  const [customers, settings, customerEntries] = await Promise.all([
+    listCustomersWithBalance(db, { includeArchived: true }),
+    getSettings(db),
+    listEntriesForCustomer(db, customerId),
+  ]);
+  const customer = customers.find((row) => row.id === customerId);
+  if (!customer) return null;
+
+  return {
+    generatedAt: nowIso(),
+    currencySymbol: settings.currencySymbol,
+    customers: [customer],
+    entries: sortByDateDescending(
+      customerEntries.map((entry) => ({ customerName: customer.name, entry })),
+    ),
   };
 }

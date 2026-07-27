@@ -332,7 +332,9 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
                         accessibilityRole="button"
                         accessibilityLabel={key}
                       >
-                        <Text style={styles.keyText}>{key}</Text>
+                        <Text style={styles.keyText} maxFontSizeMultiplier={1.3}>
+                          {key}
+                        </Text>
                       </Pressable>
                     );
                   })}

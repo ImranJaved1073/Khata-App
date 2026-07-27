@@ -151,6 +151,7 @@ export function CalculatorKeypad({
                       isClear && styles.keyTextClear,
                       isEquals && styles.keyTextEquals,
                     ]}
+                    maxFontSizeMultiplier={1.3}
                   >
                     {labelFor(key)}
                   </Text>

@@ -54,7 +54,11 @@
     "noResultsDescription": "ہجے چیک کریں، یا انہیں نئے گاہک کے طور پر شامل کریں۔",
     "addNamed": "\"{{query}}\" شامل کریں",
     "editCustomer": "گاہک میں ترمیم کریں",
-    "deleteHasEntriesMessage": "اس گاہک کی پہلے سے انٹریاں موجود ہیں، اس لیے یہ حذف ہونے کے بجائے آرکائیو ہو جائے گا — اس کی تاریخ محفوظ رہے گی۔"
+    "deleteHasEntriesMessage": "اس گاہک کی پہلے سے انٹریاں موجود ہیں، اس لیے یہ حذف ہونے کے بجائے آرکائیو ہو جائے گا — اس کی تاریخ محفوظ رہے گی۔",
+    "search": "تلاش کریں",
+    "closeSearch": "تلاش بند کریں",
+    "matchesCount_one": "{{count}} نتیجہ",
+    "matchesCount_other": "{{count}} نتائج"
   },
   "customerForm": {
     "titleNew": "گاہک شامل کریں",
@@ -103,6 +107,16 @@
     "statementDateFrom": "سے",
     "statementDateTo": "تک",
     "statementRangeSummary": "اسٹیٹمنٹ کی مدت: {{from}} – {{to}}",
+    "filterThisMonth": "اس مہینے",
+    "filterLast30Days": "پچھلے 30 دن",
+    "filterAllTime": "ہمیشہ",
+    "filterCustom": "اپنی مرضی کا",
+    "filterReset": "دوبارہ ترتیب دیں",
+    "filterApply": "لاگو کریں",
+    "moreOptions": "مزید آپشنز",
+    "exportStatement": "اسٹیٹمنٹ ایکسپورٹ کریں",
+    "exportAsCsv": "CSV کے طور پر ایکسپورٹ کریں",
+    "exportAsExcel": "ایکسل کے طور پر ایکسپورٹ کریں (.xlsx)",
     "balanceOwesYou": "گاہک آپ کا مقروض ہے",
     "balanceYouOwe": "آپ گاہک کے مقروض ہیں",
     "balanceZero": "بیلنس",
@@ -110,7 +124,9 @@
     "cashPayment": "نقد ادائیگی",
     "emptyTitle": "ابھی کوئی اندراج نہیں",
     "emptyDescription": "{{name}} کا کھاتہ شروع کرنے کے لیے پہلا بل یا نقد اندراج ریکارڈ کریں۔",
-    "addFirstEntry": "پہلا اندراج شامل کریں"
+    "addFirstEntry": "پہلا اندراج شامل کریں",
+    "noEntriesInRange": "اس تاریخ کی حد میں کوئی انٹری نہیں",
+    "noEntriesInRangeDescription": "کوئی مختلف مدت آزمائیں، یا سب کچھ دیکھنے کے لیے فلٹر دوبارہ ترتیب دیں۔"
   },
   "entry": {
     "gaveOnCredit": "ادھار دیا (نقد باہر)",

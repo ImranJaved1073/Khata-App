@@ -222,7 +222,9 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                   accessibilityRole="button"
                   accessibilityLabel={key}
                 >
-                  <Text style={styles.keyText}>{key}</Text>
+                  <Text style={styles.keyText} maxFontSizeMultiplier={1.3}>
+                    {key}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -308,11 +310,13 @@ const makeStyles = (colors: AppColors) =>
     },
     keypadRow: {
       flexDirection: "row",
+      justifyContent: "center",
       gap: theme.spacing.lg,
     },
     key: {
-      width: 68,
-      height: 68,
+      flex: 1,
+      aspectRatio: 1,
+      maxWidth: 84,
       borderRadius: theme.radius.pill,
       alignItems: "center",
       justifyContent: "center",

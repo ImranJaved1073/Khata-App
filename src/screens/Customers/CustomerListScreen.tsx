@@ -37,11 +37,38 @@ import {
 } from "../../repositories/customerRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
+import { withAlpha } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "CustomerList">;
 type Route = RouteProp<CustomersStackParamList, "CustomerList">;
+
+interface TextPart {
+  text: string;
+  match: boolean;
+}
+
+/** Splits `text` into matched/unmatched runs against `query` (case-insensitive), for search-result highlighting. */
+function highlightParts(text: string, query: string): TextPart[] {
+  if (!query) return [{ text, match: false }];
+  const lower = text.toLowerCase();
+  const needle = query.toLowerCase();
+  const firstIndex = lower.indexOf(needle);
+  if (firstIndex === -1) return [{ text, match: false }];
+
+  const parts: TextPart[] = [];
+  let cursor = 0;
+  let index = firstIndex;
+  while (index !== -1) {
+    if (index > cursor) parts.push({ text: text.slice(cursor, index), match: false });
+    parts.push({ text: text.slice(index, index + needle.length), match: true });
+    cursor = index + needle.length;
+    index = lower.indexOf(needle, cursor);
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), match: false });
+  return parts;
+}
 
 export function CustomerListScreen() {
   const { t } = useTranslation();
@@ -54,6 +81,7 @@ export function CustomerListScreen() {
   const [customers, setCustomers] = useState<CustomerWithBalance[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [query, setQuery] = useState("");
+  const [searchActive, setSearchActive] = useState(false);
   const [sort, setSort] = useState<CustomerSort>(route.params?.initialSort ?? "recent");
   const [showArchived, setShowArchived] = useState(false);
   const [balanceFilter, setBalanceFilter] = useState<CustomerBalanceFilter | null>(
@@ -177,66 +205,99 @@ export function CustomerListScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { marginTop: insets.top + theme.spacing.md }]}>
-        {t("customers.title")}
-      </Text>
-
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={18} color={colors.textSecondary} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t("customers.searchPlaceholder")}
-          placeholderTextColor={colors.textSecondary}
-          style={styles.searchInput}
-        />
-        {query.length > 0 ? (
+      {searchActive ? (
+        <View style={[styles.searchActiveRow, { marginTop: insets.top + theme.spacing.md }]}>
           <Pressable
-            onPress={() => setQuery("")}
+            onPress={() => {
+              setSearchActive(false);
+              setQuery("");
+            }}
             accessibilityRole="button"
-            accessibilityLabel={t("common.cancel")}
+            accessibilityLabel={t("customers.closeSearch")}
             hitSlop={8}
           >
-            <Ionicons name="close" size={18} color={colors.textSecondary} />
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </Pressable>
-        ) : null}
-      </View>
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={18} color={colors.textSecondary} />
+            <TextInput
+              autoFocus
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t("customers.searchPlaceholder")}
+              placeholderTextColor={colors.textSecondary}
+              style={styles.searchInput}
+            />
+            {query.length > 0 ? (
+              <Pressable
+                onPress={() => setQuery("")}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.cancel")}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.titleRow, { marginTop: insets.top + theme.spacing.md }]}>
+          <Text style={styles.title}>{t("customers.title")}</Text>
+          <Pressable
+            onPress={() => setSearchActive(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t("customers.search")}
+            hitSlop={8}
+            style={styles.searchIconButton}
+          >
+            <Ionicons name="search" size={22} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+      )}
 
-      <View style={styles.sortRow}>
-        <SortChip
-          label={t("customers.sortRecent")}
-          active={sort === "recent"}
-          onPress={() => setSort("recent")}
-        />
-        <SortChip
-          label={t("customers.sortBalance")}
-          active={sort === "balance"}
-          onPress={() => setSort("balance")}
-        />
-        <SortChip
-          label={t("customers.showArchived")}
-          active={showArchived}
-          onPress={() => setShowArchived((current) => !current)}
-        />
-        {balanceFilter ? (
+      {!searchActive ? (
+        <View style={styles.sortRow}>
           <SortChip
-            label={
-              balanceFilter === "receivable"
-                ? t("customers.filterReceivable")
-                : t("customers.filterPayable")
-            }
-            dismissible
-            accessibilityLabel={t("customers.clearFilter", {
-              filter:
+            label={t("customers.sortRecent")}
+            active={sort === "recent"}
+            onPress={() => setSort("recent")}
+          />
+          <SortChip
+            label={t("customers.sortBalance")}
+            active={sort === "balance"}
+            onPress={() => setSort("balance")}
+          />
+          <SortChip
+            label={t("customers.showArchived")}
+            active={showArchived}
+            onPress={() => setShowArchived((current) => !current)}
+          />
+          {balanceFilter ? (
+            <SortChip
+              label={
                 balanceFilter === "receivable"
                   ? t("customers.filterReceivable")
-                  : t("customers.filterPayable"),
-            })}
-            active
-            onPress={() => setBalanceFilter(null)}
-          />
-        ) : null}
-      </View>
+                  : t("customers.filterPayable")
+              }
+              dismissible
+              accessibilityLabel={t("customers.clearFilter", {
+                filter:
+                  balanceFilter === "receivable"
+                    ? t("customers.filterReceivable")
+                    : t("customers.filterPayable"),
+              })}
+              active
+              onPress={() => setBalanceFilter(null)}
+            />
+          ) : null}
+        </View>
+      ) : null}
+
+      {searchActive && trimmedQuery.length > 0 && filtered.length > 0 ? (
+        <Text style={styles.matchesLabel}>
+          {t("customers.matchesCount", { count: filtered.length })}
+        </Text>
+      ) : null}
 
       {loading ? (
         <View style={styles.emptyContainer}>
@@ -281,6 +342,7 @@ export function CustomerListScreen() {
             <CustomerRow
               customer={item}
               currencySymbol={currencySymbol}
+              highlightQuery={searchActive ? trimmedQuery : ""}
               onPress={() =>
                 showArchived
                   ? navigation.navigate("CustomerForm", { customerId: item.id })
@@ -289,6 +351,21 @@ export function CustomerListScreen() {
               onLongPress={() => setContextMenuCustomer(item)}
             />
           )}
+          ListFooterComponent={
+            searchActive && trimmedQuery.length > 0 ? (
+              <Pressable
+                style={styles.quickAddRow}
+                accessibilityRole="button"
+                accessibilityLabel={t("customers.addNamed", { query: trimmedQuery })}
+                onPress={() => navigation.navigate("CustomerForm", { initialName: trimmedQuery })}
+              >
+                <Ionicons name="person-add-outline" size={20} color={colors.primary} />
+                <Text style={styles.quickAddText}>
+                  {t("customers.addNamed", { query: trimmedQuery })}
+                </Text>
+              </Pressable>
+            ) : null
+          }
         />
       )}
 
@@ -418,11 +495,13 @@ function SortChip({
 function CustomerRow({
   customer,
   currencySymbol,
+  highlightQuery,
   onPress,
   onLongPress,
 }: {
   customer: CustomerWithBalance;
   currencySymbol: string;
+  highlightQuery?: string;
   onPress: () => void;
   onLongPress: () => void;
 }) {
@@ -460,7 +539,17 @@ function CustomerRow({
       />
       <View style={styles.rowInfo}>
         <Text style={styles.rowName} numberOfLines={1}>
-          {customer.name}
+          {highlightQuery
+            ? highlightParts(customer.name, highlightQuery).map((part, index) =>
+                part.match ? (
+                  <Text key={index} style={{ backgroundColor: withAlpha(colors.accent, 0.35) }}>
+                    {part.text}
+                  </Text>
+                ) : (
+                  <Text key={index}>{part.text}</Text>
+                ),
+              )
+            : customer.name}
         </Text>
         <Text style={styles.rowSubtext}>{relativeLabel}</Text>
       </View>
@@ -480,14 +569,27 @@ const makeStyles = (colors: AppColors) =>
   title: {
     ...theme.typography.title,
     color: colors.textPrimary,
-    marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
   },
-  searchRow: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginHorizontal: theme.spacing.md,
-    marginTop: theme.spacing.md,
+  },
+  searchIconButton: {
+    padding: theme.spacing.xs,
+  },
+  searchActiveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
+  },
+  searchRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     backgroundColor: colors.surface,
@@ -500,6 +602,25 @@ const makeStyles = (colors: AppColors) =>
     flex: 1,
     ...theme.typography.body,
     color: colors.textPrimary,
+  },
+  matchesLabel: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+  },
+  quickAddRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+  },
+  quickAddText: {
+    ...theme.typography.body,
+    color: colors.primary,
+    fontWeight: "600",
   },
   sortRow: {
     flexDirection: "row",

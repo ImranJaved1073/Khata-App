@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Pressable,
-  SectionList,
   StyleSheet,
   Text,
   View,
@@ -17,19 +17,28 @@ import { useTranslation } from "react-i18next";
 import type { ActionSheetOption } from "../../components/ActionSheet";
 import { ActionSheet } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DateField } from "../../components/DateField";
 import { db } from "../../db/client";
-import { formatRelativeDate } from "../../lib/dateFormat";
+import { formatTimeOfDay } from "../../lib/dateFormat";
 import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
+import { buildEntriesCsv, buildWorkbookBase64 } from "../../lib/exportData";
+import { CSV_MIME, XLSX_MIME, writeAndShareFile } from "../../lib/exportFile";
 import { formatMoney } from "../../lib/money";
 import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import { getInitials } from "../../lib/textFormat";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { computeBalanceFromEntries } from "../../repositories/balance";
-import { getCustomer } from "../../repositories/customerRepository";
+import {
+  customerHasEntries,
+  deleteCustomer,
+  getCustomer,
+  setCustomerArchived,
+} from "../../repositories/customerRepository";
 import { getStatementDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { listEntriesForCustomer } from "../../repositories/entryRepository";
+import { getCustomerExportData } from "../../repositories/exportRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { Customer } from "../../types/models";
 import type { AppColors } from "../../theme/colors";
@@ -48,10 +57,31 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatSectionTitle(dateString: string): string {
-  return new Date(`${dateString}T00:00:00`)
-    .toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })
-    .toUpperCase();
+type StatementPreset = "month" | "last30" | "allTime" | "custom";
+
+function computePresetRange(
+  preset: StatementPreset,
+  current: { from: string; to: string },
+): { from: string; to: string } {
+  const today = todayIso();
+  if (preset === "month") {
+    const now = new Date();
+    const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    return { from, to: today };
+  }
+  if (preset === "last30") {
+    const from = new Date();
+    from.setDate(from.getDate() - 29);
+    return { from: from.toISOString().slice(0, 10), to: today };
+  }
+  if (preset === "allTime") {
+    return { from: "", to: "" };
+  }
+  return current;
+}
+
+function slugify(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "customer";
 }
 
 function formatShortDate(dateString: string): string {
@@ -75,10 +105,18 @@ export function CustomerKhataScreen() {
   const [loading, setLoading] = useState(true);
   const [showDeleted, setShowDeleted] = useState(false);
   const [statementRangeExpanded, setStatementRangeExpanded] = useState(false);
+  const [statementPreset, setStatementPreset] = useState<StatementPreset>("allTime");
   const [statementDateFrom, setStatementDateFrom] = useState("");
   const [statementDateTo, setStatementDateTo] = useState("");
+  const [appliedStatementRange, setAppliedStatementRange] = useState({ dateFrom: "", dateTo: "" });
   const [newEntrySheetVisible, setNewEntrySheetVisible] = useState(false);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const [overflowMenuVisible, setOverflowMenuVisible] = useState(false);
+  const [exportSheetVisible, setExportSheetVisible] = useState(false);
+  const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ hasEntries: boolean } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,17 +141,18 @@ export function CustomerKhataScreen() {
   const deletedCount = allEntries.length - entries.length;
   const visibleEntries = showDeleted ? allEntries : entries;
 
-  const sections = useMemo(() => {
-    const map = new Map<string, EntryWithLineItems[]>();
-    for (const entry of visibleEntries) {
-      const list = map.get(entry.entryDate) ?? [];
-      list.push(entry);
-      map.set(entry.entryDate, list);
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([date, data]) => ({ title: formatSectionTitle(date), data }));
-  }, [visibleEntries]);
+  const isFiltering =
+    isValidDate(appliedStatementRange.dateFrom) || isValidDate(appliedStatementRange.dateTo);
+  const dateFilteredEntries = useMemo(() => {
+    if (!isFiltering) return visibleEntries;
+    const from = isValidDate(appliedStatementRange.dateFrom) ? appliedStatementRange.dateFrom : null;
+    const to = isValidDate(appliedStatementRange.dateTo) ? appliedStatementRange.dateTo : null;
+    return visibleEntries.filter((entry) => {
+      if (from && entry.entryDate < from) return false;
+      if (to && entry.entryDate > to) return false;
+      return true;
+    });
+  }, [visibleEntries, isFiltering, appliedStatementRange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -123,8 +162,12 @@ export function CustomerKhataScreen() {
 
   async function handleShareStatement(method: "whatsapp" | "sms" | "pdf") {
     try {
-      const dateFrom = isValidDate(statementDateFrom) ? statementDateFrom : undefined;
-      const dateTo = isValidDate(statementDateTo) ? statementDateTo : undefined;
+      const dateFrom = isValidDate(appliedStatementRange.dateFrom)
+        ? appliedStatementRange.dateFrom
+        : undefined;
+      const dateTo = isValidDate(appliedStatementRange.dateTo)
+        ? appliedStatementRange.dateTo
+        : undefined;
       const data = await getStatementDocumentData(db, customerId, { dateFrom, dateTo });
       if (!data) return;
       if (method === "whatsapp") {
@@ -138,6 +181,92 @@ export function CustomerKhataScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
+  }
+
+  function selectStatementPreset(preset: StatementPreset) {
+    setStatementPreset(preset);
+    const range = computePresetRange(preset, { from: statementDateFrom, to: statementDateTo });
+    setStatementDateFrom(range.from);
+    setStatementDateTo(range.to);
+  }
+
+  function handleApplyStatementFilter() {
+    setAppliedStatementRange({ dateFrom: statementDateFrom, dateTo: statementDateTo });
+    setStatementRangeExpanded(false);
+  }
+
+  function handleResetStatementFilter() {
+    setStatementPreset("allTime");
+    setStatementDateFrom("");
+    setStatementDateTo("");
+    setAppliedStatementRange({ dateFrom: "", dateTo: "" });
+  }
+
+  async function handleExportStatement(kind: "csv" | "excel") {
+    try {
+      const data = await getCustomerExportData(db, customerId);
+      if (!data) return;
+      const base = `${slugify(data.customers[0].name)}-statement-${data.generatedAt.slice(0, 10)}`;
+      const shared = await writeAndShareFile(
+        kind === "csv"
+          ? { fileName: `${base}.csv`, contents: buildEntriesCsv(data), encoding: "utf8", mimeType: CSV_MIME }
+          : {
+              fileName: `${base}.xlsx`,
+              contents: buildWorkbookBase64(data),
+              encoding: "base64",
+              mimeType: XLSX_MIME,
+            },
+      );
+      if (!shared) Alert.alert(t("share.unavailable"));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
+  }
+
+  async function handleToggleArchive() {
+    if (!customer) return;
+    setArchiveLoading(true);
+    try {
+      await setCustomerArchived(db, customer.id, !customer.isArchived);
+      setArchiveDialogVisible(false);
+      await load();
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setArchiveLoading(false);
+    }
+  }
+
+  function requestDeleteCustomer() {
+    customerHasEntries(db, customerId)
+      .then((hasEntries) => setDeleteDialog({ hasEntries }))
+      .catch((error) => {
+        console.error(error);
+        Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+      });
+  }
+
+  async function handleConfirmDeleteCustomer() {
+    if (!deleteDialog) return;
+    setDeleteLoading(true);
+    try {
+      if (deleteDialog.hasEntries) {
+        await setCustomerArchived(db, customerId, true);
+        setDeleteDialog(null);
+        await load();
+      } else {
+        await deleteCustomer(db, customerId);
+        setDeleteDialog(null);
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -168,14 +297,24 @@ export function CustomerKhataScreen() {
         </View>
       ),
       headerRight: () => (
-        <Pressable
-          onPress={() => setShareSheetVisible(true)}
-          accessibilityLabel={t("khata.shareStatement")}
-          accessibilityRole="button"
-          style={styles.headerButton}
-        >
-          <Ionicons name="share-social-outline" size={22} color={colors.onPrimary} />
-        </Pressable>
+        <View style={styles.headerActionsRow}>
+          <Pressable
+            onPress={() => setShareSheetVisible(true)}
+            accessibilityLabel={t("khata.shareStatement")}
+            accessibilityRole="button"
+            style={styles.headerButton}
+          >
+            <Ionicons name="share-social-outline" size={22} color={colors.onPrimary} />
+          </Pressable>
+          <Pressable
+            onPress={() => setOverflowMenuVisible(true)}
+            accessibilityLabel={t("khata.moreOptions")}
+            accessibilityRole="button"
+            style={styles.headerButton}
+          >
+            <Ionicons name="ellipsis-vertical" size={22} color={colors.onPrimary} />
+          </Pressable>
+        </View>
       ),
     });
   }, [navigation, customer, t, colors, styles]);
@@ -206,8 +345,13 @@ export function CustomerKhataScreen() {
         ? t("khata.balanceYouOwe")
         : t("khata.balanceZero");
 
-  const showOpeningBalanceRow = customer.openingBalance !== 0;
-  const isTrulyEmpty = visibleEntries.length === 0 && !showOpeningBalanceRow;
+  const hasOpeningBalance = customer.openingBalance !== 0;
+  const isTrulyEmpty = visibleEntries.length === 0 && !hasOpeningBalance;
+  // The synthetic opening-balance row represents the customer's true starting balance — only
+  // meaningful when looking at the full, unfiltered history, so a date filter hides it rather
+  // than showing a number that no longer reconciles with the (now partial) list above it.
+  const showOpeningBalanceRow = hasOpeningBalance && !isFiltering;
+  const isFilteredEmpty = !isTrulyEmpty && isFiltering && dateFilteredEntries.length === 0;
 
   const newEntryOptions: ActionSheetOption[] = [
     {
@@ -260,6 +404,60 @@ export function CustomerKhataScreen() {
     },
   ];
 
+  const overflowMenuOptions: ActionSheetOption[] = [
+    {
+      key: "edit",
+      icon: "create-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: t("customers.editCustomer"),
+      onPress: () => navigation.navigate("CustomerForm", { customerId }),
+    },
+    {
+      key: "export",
+      icon: "download-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: t("khata.exportStatement"),
+      onPress: () => setExportSheetVisible(true),
+    },
+    {
+      key: "archive",
+      icon: customer.isArchived ? "arrow-undo-outline" : "archive-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: customer.isArchived ? t("customerForm.unarchive") : t("customerForm.archive"),
+      onPress: () => setArchiveDialogVisible(true),
+    },
+    {
+      key: "delete",
+      icon: "trash-outline",
+      iconBackgroundColor: colors.owesMeSoft,
+      iconColor: colors.danger,
+      label: t("customerForm.delete"),
+      onPress: requestDeleteCustomer,
+    },
+  ];
+
+  const exportOptions: ActionSheetOption[] = [
+    {
+      key: "csv",
+      icon: "document-text-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: t("khata.exportAsCsv"),
+      onPress: () => handleExportStatement("csv"),
+    },
+    {
+      key: "excel",
+      icon: "grid-outline",
+      iconBackgroundColor: colors.primarySoft,
+      iconColor: colors.primary,
+      label: t("khata.exportAsExcel"),
+      onPress: () => handleExportStatement("excel"),
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.navyBlock}>
@@ -304,41 +502,76 @@ export function CustomerKhataScreen() {
         />
       </Pressable>
       {!statementRangeExpanded &&
-      (isValidDate(statementDateFrom) || isValidDate(statementDateTo)) ? (
+      (isValidDate(appliedStatementRange.dateFrom) || isValidDate(appliedStatementRange.dateTo)) ? (
         <Text style={styles.statementRangeSummary}>
           {t("khata.statementRangeSummary", {
-            from: isValidDate(statementDateFrom) ? statementDateFrom : "…",
-            to: isValidDate(statementDateTo) ? statementDateTo : "…",
+            from: isValidDate(appliedStatementRange.dateFrom)
+              ? appliedStatementRange.dateFrom
+              : "…",
+            to: isValidDate(appliedStatementRange.dateTo) ? appliedStatementRange.dateTo : "…",
           })}
         </Text>
       ) : null}
       {statementRangeExpanded ? (
-        <View style={styles.statementRangeRow}>
-          <DateField
-            value={statementDateFrom || todayIso()}
-            onChange={setStatementDateFrom}
-            label={t("khata.statementDateFrom")}
-            style={styles.statementDateField}
-          />
-          <DateField
-            value={statementDateTo || todayIso()}
-            onChange={setStatementDateTo}
-            label={t("khata.statementDateTo")}
-            style={styles.statementDateField}
-          />
-          {statementDateFrom || statementDateTo ? (
-            <Pressable
-              style={styles.clearButton}
-              accessibilityRole="button"
-              accessibilityLabel={t("reports.clearFilter")}
-              onPress={() => {
-                setStatementDateFrom("");
-                setStatementDateTo("");
+        <View style={styles.statementFilterPanel}>
+          <View style={styles.presetRow}>
+            <PresetChip
+              label={t("khata.filterThisMonth")}
+              active={statementPreset === "month"}
+              onPress={() => selectStatementPreset("month")}
+            />
+            <PresetChip
+              label={t("khata.filterLast30Days")}
+              active={statementPreset === "last30"}
+              onPress={() => selectStatementPreset("last30")}
+            />
+            <PresetChip
+              label={t("khata.filterAllTime")}
+              active={statementPreset === "allTime"}
+              onPress={() => selectStatementPreset("allTime")}
+            />
+            <PresetChip
+              label={t("khata.filterCustom")}
+              active={statementPreset === "custom"}
+              onPress={() => selectStatementPreset("custom")}
+            />
+          </View>
+          <View style={styles.statementRangeRow}>
+            <DateField
+              value={statementDateFrom || todayIso()}
+              onChange={(next) => {
+                setStatementDateFrom(next);
+                setStatementPreset("custom");
               }}
+              label={t("khata.statementDateFrom")}
+              style={styles.statementDateField}
+            />
+            <DateField
+              value={statementDateTo || todayIso()}
+              onChange={(next) => {
+                setStatementDateTo(next);
+                setStatementPreset("custom");
+              }}
+              label={t("khata.statementDateTo")}
+              style={styles.statementDateField}
+            />
+          </View>
+          <View style={styles.filterActionsRow}>
+            <Pressable
+              style={styles.resetButton}
+              accessibilityRole="button"
+              onPress={handleResetStatementFilter}
             >
-              <Text style={styles.clearButtonText}>{t("reports.clearFilter")}</Text>
+              <Text style={styles.resetButtonText}>{t("khata.filterReset")}</Text>
             </Pressable>
-          ) : null}
+            <Pressable
+              style={styles.applyButton}
+              accessibilityRole="button"
+              onPress={handleApplyStatementFilter}
+            >
+              <Text style={styles.applyButtonText}>{t("khata.filterApply")}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -352,15 +585,20 @@ export function CustomerKhataScreen() {
             {t("khata.emptyDescription", { name: customer.name })}
           </Text>
         </View>
+      ) : isFilteredEmpty ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconBox}>
+            <Ionicons name="calendar-outline" size={40} color={colors.primaryMuted} />
+          </View>
+          <Text style={styles.emptyTitle}>{t("khata.noEntriesInRange")}</Text>
+          <Text style={styles.emptyText}>{t("khata.noEntriesInRangeDescription")}</Text>
+        </View>
       ) : (
-        <SectionList
-          sections={sections}
+        <FlatList
+          data={dateFilteredEntries}
           keyExtractor={(item) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          renderSectionHeader={({ section }) => (
-            <Text style={styles.sectionHeader}>{section.title}</Text>
-          )}
           renderItem={({ item }) => (
             <EntryRow
               entry={item}
@@ -434,7 +672,85 @@ export function CustomerKhataScreen() {
         options={shareOptions}
         cancelLabel={t("customerForm.cancel")}
       />
+
+      <ActionSheet
+        visible={overflowMenuVisible}
+        onClose={() => setOverflowMenuVisible(false)}
+        title={customer.name}
+        options={overflowMenuOptions}
+        cancelLabel={t("customerForm.cancel")}
+      />
+
+      <ActionSheet
+        visible={exportSheetVisible}
+        onClose={() => setExportSheetVisible(false)}
+        title={t("khata.exportStatement")}
+        options={exportOptions}
+        cancelLabel={t("customerForm.cancel")}
+      />
+
+      <ConfirmDialog
+        visible={archiveDialogVisible}
+        title={
+          customer.isArchived
+            ? t("customerForm.unarchiveConfirmTitle")
+            : t("customerForm.archiveConfirmTitle")
+        }
+        message={
+          customer.isArchived
+            ? t("customerForm.unarchiveConfirmMessage")
+            : t("customerForm.archiveConfirmMessage")
+        }
+        confirmLabel={customer.isArchived ? t("customerForm.unarchive") : t("customerForm.archive")}
+        cancelLabel={t("customerForm.cancel")}
+        loading={archiveLoading}
+        onCancel={() => setArchiveDialogVisible(false)}
+        onConfirm={handleToggleArchive}
+      />
+
+      <ConfirmDialog
+        visible={deleteDialog !== null}
+        title={
+          deleteDialog?.hasEntries
+            ? t("customerForm.archiveConfirmTitle")
+            : t("customerForm.deleteConfirmTitle")
+        }
+        message={
+          deleteDialog?.hasEntries
+            ? t("customers.deleteHasEntriesMessage")
+            : t("customerForm.deleteConfirmMessage")
+        }
+        confirmLabel={deleteDialog?.hasEntries ? t("customerForm.archive") : t("customerForm.delete")}
+        cancelLabel={t("customerForm.cancel")}
+        destructive
+        loading={deleteLoading}
+        onCancel={() => setDeleteDialog(null)}
+        onConfirm={handleConfirmDeleteCustomer}
+      />
     </View>
+  );
+}
+
+function PresetChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={[styles.presetChip, active && styles.presetChipActive]}
+    >
+      <Text style={[styles.presetChipText, active && styles.presetChipTextActive]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -464,15 +780,7 @@ function EntryRow({
     : isCashOut
       ? "arrow-down-outline"
       : "arrow-up-outline";
-  const relative = formatRelativeDate(entry.createdAt);
-  const dateLabel =
-    relative.kind === "today"
-      ? relative.time
-      : relative.kind === "yesterday"
-        ? t("common.yesterday")
-        : relative.kind === "daysAgo"
-          ? t("common.daysAgo", { count: relative.count })
-          : formatShortDate(entry.entryDate);
+  const dateLabel = `${formatShortDate(entry.entryDate)} · ${formatTimeOfDay(entry.createdAt)}`;
   const suffix = isBill ? t("entry.itemized") : entry.note ?? undefined;
 
   return (
@@ -554,6 +862,10 @@ const makeStyles = (colors: AppColors) =>
     justifyContent: "center",
     backgroundColor: colors.background,
   },
+  headerActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   headerButton: {
     paddingHorizontal: theme.spacing.sm,
   },
@@ -627,43 +939,78 @@ const makeStyles = (colors: AppColors) =>
     textAlign: "center",
     marginTop: 2,
   },
+  statementFilterPanel: {
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  presetRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  presetChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  presetChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  presetChipText: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  presetChipTextActive: {
+    color: colors.onPrimary,
+  },
   statementRangeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.sm,
-  },
-  statementInput: {
-    ...theme.typography.body,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  statementDateInput: {
-    flex: 1,
-    minWidth: 120,
+    marginBottom: theme.spacing.md,
   },
   statementDateField: {
     flex: 1,
     minWidth: 120,
   },
-  clearButton: {
-    paddingHorizontal: theme.spacing.md,
+  filterActionsRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  resetButton: {
+    flex: 1,
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    backgroundColor: colors.surface,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: "center",
     justifyContent: "center",
   },
-  clearButtonText: {
-    ...theme.typography.caption,
+  resetButtonText: {
+    ...theme.typography.body,
     color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  applyButtonText: {
+    ...theme.typography.body,
+    color: colors.onPrimary,
     fontWeight: "600",
   },
   list: {
@@ -739,14 +1086,6 @@ const makeStyles = (colors: AppColors) =>
     ...theme.typography.body,
     color: colors.textSecondary,
     textAlign: "center",
-  },
-  sectionHeader: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    fontWeight: "700",
-    textAlign: "center",
-    backgroundColor: colors.background,
-    paddingVertical: theme.spacing.sm,
   },
   newEntryButton: {
     flexDirection: "row",

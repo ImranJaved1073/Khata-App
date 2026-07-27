@@ -28,7 +28,11 @@ export function Avatar({
         },
       ]}
     >
-      <Text style={[styles.label, { color, fontSize: size * 0.4 }]} numberOfLines={1}>
+      <Text
+        style={[styles.label, { color, fontSize: size * 0.4 }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.2}
+      >
         {label}
       </Text>
     </View>

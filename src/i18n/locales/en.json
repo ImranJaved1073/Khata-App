@@ -54,7 +54,11 @@
     "noResultsDescription": "Check the spelling, or add them as a new customer.",
     "addNamed": "Add \"{{query}}\"",
     "editCustomer": "Edit customer",
-    "deleteHasEntriesMessage": "This customer already has entries, so they'll be archived instead of deleted — their history is kept."
+    "deleteHasEntriesMessage": "This customer already has entries, so they'll be archived instead of deleted — their history is kept.",
+    "search": "Search",
+    "closeSearch": "Close search",
+    "matchesCount_one": "{{count}} match",
+    "matchesCount_other": "{{count}} matches"
   },
   "customerForm": {
     "titleNew": "Add Customer",
@@ -103,6 +107,16 @@
     "statementDateFrom": "From",
     "statementDateTo": "To",
     "statementRangeSummary": "Statement range: {{from}} – {{to}}",
+    "filterThisMonth": "This month",
+    "filterLast30Days": "Last 30 days",
+    "filterAllTime": "All time",
+    "filterCustom": "Custom",
+    "filterReset": "Reset",
+    "filterApply": "Apply",
+    "moreOptions": "More options",
+    "exportStatement": "Export statement",
+    "exportAsCsv": "Export as CSV",
+    "exportAsExcel": "Export as Excel (.xlsx)",
     "balanceOwesYou": "Customer owes you",
     "balanceYouOwe": "You owe customer",
     "balanceZero": "Balance",
@@ -110,7 +124,9 @@
     "cashPayment": "Cash payment",
     "emptyTitle": "No entries yet",
     "emptyDescription": "Record the first bill or cash entry for {{name}} to start this khata.",
-    "addFirstEntry": "Add first entry"
+    "addFirstEntry": "Add first entry",
+    "noEntriesInRange": "No entries in this date range",
+    "noEntriesInRangeDescription": "Try a different range, or reset the filter to see everything."
   },
   "entry": {
     "gaveOnCredit": "Gave on credit (cash out)",

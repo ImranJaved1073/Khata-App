@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Pressable,
   ScrollView,
@@ -10,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { AppStateStatus, StyleProp, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -136,6 +137,7 @@ export function EntryFormScreen() {
   const [direction, setDirection] = useState<EntryDirection>("cash_out");
   const [calc, setCalc] = useState<CalculatorState>(() => createCalculatorState(0));
   const [entryDate, setEntryDate] = useState(todayDate());
+  const autoTodayRef = useRef(entryDate);
   const [note, setNote] = useState("");
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [lineItems, setLineItems] = useState<BillLineItemState[]>([]);
@@ -181,6 +183,23 @@ export function EntryFormScreen() {
       })
       .finally(() => setLoading(false));
   }, [entryId, t]);
+
+  // The date field defaults to "today" once at mount and is otherwise left for the user to edit.
+  // If this screen is left open across midnight (backgrounded mid-bill, resumed the next day),
+  // that mount-time default would silently keep pointing at yesterday. On resume, bump it forward
+  // — but only if the user hasn't since picked a date of their own, and only for a brand-new entry
+  // (edit mode's date comes from the saved record, not this default).
+  useEffect(() => {
+    if (isEditMode) return;
+    const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
+      if (nextState !== "active") return;
+      const current = todayDate();
+      if (current === autoTodayRef.current) return;
+      setEntryDate((prev) => (prev === autoTodayRef.current ? current : prev));
+      autoTodayRef.current = current;
+    });
+    return () => subscription.remove();
+  }, [isEditMode]);
 
   useEffect(() => {
     navigation.setOptions({

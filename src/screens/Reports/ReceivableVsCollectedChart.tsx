@@ -93,16 +93,20 @@ const makeStyles = (colors: AppColors) =>
       marginBottom: theme.spacing.sm,
     },
     group: {
+      flex: 1,
       alignItems: "center",
     },
     barsRow: {
       flexDirection: "row",
       alignItems: "flex-end",
+      justifyContent: "center",
       gap: theme.spacing.xs,
       height: CHART_HEIGHT,
+      width: "100%",
     },
     bar: {
-      width: 28,
+      flex: 1,
+      maxWidth: 28,
       borderTopLeftRadius: theme.radius.sm,
       borderTopRightRadius: theme.radius.sm,
     },
