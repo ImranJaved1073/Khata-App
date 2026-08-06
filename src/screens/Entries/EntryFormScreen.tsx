@@ -34,6 +34,7 @@ import {
   inputOperator,
   inputPercent,
 } from "../../lib/calculator";
+import { swatchColorFor } from "../../lib/garmentColor";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { getCustomer } from "../../repositories/customerRepository";
@@ -50,7 +51,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import { CalculatorKeypad } from "./CalculatorKeypad";
 import type { BillLineItemState } from "./BillLineItemCard";
-import { GARMENT_SIZES, swatchColorFor } from "./BillLineItemCard";
+import { GARMENT_SIZES, NUMERIC_SIZES, selectedSizesFrom } from "./BillLineItemCard";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryForm">;
 type Route = RouteProp<CustomersStackParamList, "EntryForm">;
@@ -73,9 +74,20 @@ function mergeNoteWithLineDescriptions(
   return base ? `${base}\n${nextAutoBlock}` : nextAutoBlock;
 }
 
+/** True if every comma-separated part of a saved size string is one of the known preset sizes
+ * (named or numeric — category, and so which list applies, isn't persisted, see below, so this
+ * checks the union of both rather than guessing). A genuinely custom/freeform size (or a
+ * multi-select saved under a mode this reopens as the "wrong" list for) still degrades
+ * gracefully into the custom-size box further down. */
+function isPresetSizeString(size: string): boolean {
+  const known: readonly string[] = [...GARMENT_SIZES, ...NUMERIC_SIZES];
+  const parts = selectedSizesFrom(size);
+  return parts.length > 0 && parts.every((part) => known.includes(part));
+}
+
 /** A saved line item's `id` doubles as its client-side `key`, so edits map back to the same row. */
 function lineItemStateFromModel(li: LineItem): BillLineItemState {
-  const isPresetSize = li.size ? (GARMENT_SIZES as readonly string[]).includes(li.size) : false;
+  const isPresetSize = li.size ? isPresetSizeString(li.size) : false;
   return {
     key: li.id,
     category: null,

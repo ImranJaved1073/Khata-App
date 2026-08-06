@@ -36,7 +36,7 @@ src/
   navigation/    RootNavigator (tabs) + one Stack per tab + types.ts (param lists)
   screens/       one folder per feature area, matching the screens in the PDF's section 9 — plus Lock/ and Onboarding/, which App.tsx renders directly as gates outside the tab navigator
   components/    shared presentational components (incl. ThemeModeSelector, LanguageSelector)
-  lib/           pure, db-free helpers: money.ts (paisa formatting), documentFormat.ts (bill/statement HTML+text), share.ts (print/deep-link/share), exportData.ts (CSV/xlsx builders), exportFile.ts (write+share a file), appLock.ts (PIN hash/lockout/biometric, wraps expo-secure-store + expo-local-authentication), backupFile.ts (backup JSON share + Android SAF restore pick)
+  lib/           pure, db-free helpers: money.ts (paisa formatting), documentFormat.ts (bill/statement HTML+text), garmentColor.ts (swatchColorFor() — the shared 3-tier colour-to-swatch resolver used by the bill editor, PDF, and WhatsApp image), share.ts (print/deep-link/share), exportData.ts (CSV/xlsx builders), exportFile.ts (write+share a file), appLock.ts (PIN hash/lockout/biometric, wraps expo-secure-store + expo-local-authentication), backupFile.ts (backup JSON share + Android SAF restore pick)
 ```
 
 `lib/` holds pure functions and thin wrappers over device APIs (print, sharing, file-system, secure-store, biometrics). It never imports `db/client.ts` — anything needing data takes it as an argument, assembled by a repository function (e.g. `getBillDocumentData`, `getExportData`, `getBackupData`).

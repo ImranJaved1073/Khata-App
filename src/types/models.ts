@@ -66,6 +66,16 @@ export interface AuditLogEntry {
   createdAt: IsoTimestamp;
 }
 
+export type CustomOptionKind = "color" | "category";
+
+/** A freeform colour/category label the user has typed once, remembered for future reuse. */
+export interface CustomOption {
+  id: string;
+  kind: CustomOptionKind;
+  label: string;
+  createdAt: IsoTimestamp;
+}
+
 export interface Settings {
   id: number;
   businessName: string | null;

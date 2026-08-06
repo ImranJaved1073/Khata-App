@@ -12,6 +12,7 @@ import type { DocumentReceiptImageCaptureHandle } from "../../components/Documen
 import { DocumentReceiptImageCapture } from "../../components/DocumentReceiptImageCapture";
 import { db } from "../../db/client";
 import { buildBillHtml, buildBillText } from "../../lib/documentFormat";
+import { swatchColorFor } from "../../lib/garmentColor";
 import { formatMoney } from "../../lib/money";
 import { formatTimeOfDay } from "../../lib/dateFormat";
 import { shareImage, shareImageToWhatsApp, sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
@@ -22,7 +23,7 @@ import { getBillDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
-import { GARMENT_COLORS, type AppColors, type GarmentColorLabel } from "../../theme/colors";
+import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { Customer } from "../../types/models";
@@ -195,7 +196,7 @@ export function BillSavedScreen() {
             <Text style={[styles.tableHeaderText, styles.tableAmountCol]}>{t("entry.tableAmount")}</Text>
           </View>
           {entry.lineItems.map((item) => {
-            const swatchColor = item.color ? GARMENT_COLORS[item.color as GarmentColorLabel] : undefined;
+            const swatchColor = swatchColorFor(item.color);
             return (
               <View key={item.id} style={styles.lineRow}>
                 <View style={[styles.lineItemInner, styles.tableItemCol]}>

@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { hashColor, matchesKnownLabel, swatchColorFor } from "../../lib/garmentColor";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import { generateLineItemDescription } from "../../repositories/description";
-import type { AppColors, GarmentColorLabel } from "../../theme/colors";
+import type { AppColors } from "../../theme/colors";
 import { GARMENT_COLOR_LABELS, GARMENT_COLORS } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
@@ -53,75 +54,13 @@ function sizeListFor(mode: "named" | "numeric"): readonly string[] {
   return mode === "numeric" ? NUMERIC_SIZES : GARMENT_SIZES;
 }
 
-/** Deterministic fallback dot color for a freeform colour label that matches nothing known. */
-function hashColor(label: string): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i += 1) {
-    hash = (hash << 5) - hash + label.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 45%, 45%)`;
-}
-
-/**
- * Standard CSS/X11 named colors (lowercase name -> hex), so a freeform colour that happens to
- * match a common name (e.g. "blue") renders its real color instead of an arbitrary hashed one.
- * Independent of the fixed 14-label garment palette above — this is a much larger, generic set.
- */
-const CSS_NAMED_COLORS: Record<string, string> = {
-  aliceblue: "#F0F8FF", antiquewhite: "#FAEBD7", aqua: "#00FFFF", aquamarine: "#7FFFD4",
-  azure: "#F0FFFF", beige: "#F5F5DC", bisque: "#FFE4C4", black: "#000000",
-  blanchedalmond: "#FFEBCD", blue: "#0000FF", blueviolet: "#8A2BE2", brown: "#A52A2A",
-  burlywood: "#DEB887", cadetblue: "#5F9EA0", chartreuse: "#7FFF00", chocolate: "#D2691E",
-  coral: "#FF7F50", cornflowerblue: "#6495ED", cornsilk: "#FFF8DC", crimson: "#DC143C",
-  cyan: "#00FFFF", darkblue: "#00008B", darkcyan: "#008B8B", darkgoldenrod: "#B8860B",
-  darkgray: "#A9A9A9", darkgreen: "#006400", darkgrey: "#A9A9A9", darkkhaki: "#BDB76B",
-  darkmagenta: "#8B008B", darkolivegreen: "#556B2F", darkorange: "#FF8C00", darkorchid: "#9932CC",
-  darkred: "#8B0000", darksalmon: "#E9967A", darkseagreen: "#8FBC8F", darkslateblue: "#483D8B",
-  darkslategray: "#2F4F4F", darkslategrey: "#2F4F4F", darkturquoise: "#00CED1", darkviolet: "#9400D3",
-  deeppink: "#FF1493", deepskyblue: "#00BFFF", dimgray: "#696969", dimgrey: "#696969",
-  dodgerblue: "#1E90FF", firebrick: "#B22222", floralwhite: "#FFFAF0", forestgreen: "#228B22",
-  fuchsia: "#FF00FF", gainsboro: "#DCDCDC", ghostwhite: "#F8F8FF", gold: "#FFD700",
-  goldenrod: "#DAA520", gray: "#808080", green: "#008000", greenyellow: "#ADFF2F",
-  grey: "#808080", honeydew: "#F0FFF0", hotpink: "#FF69B4", indianred: "#CD5C5C",
-  indigo: "#4B0082", ivory: "#FFFFF0", khaki: "#F0E68C", lavender: "#E6E6FA",
-  lavenderblush: "#FFF0F5", lawngreen: "#7CFC00", lemonchiffon: "#FFFACD", lightblue: "#ADD8E6",
-  lightcoral: "#F08080", lightcyan: "#E0FFFF", lightgoldenrodyellow: "#FAFAD2", lightgray: "#D3D3D3",
-  lightgreen: "#90EE90", lightgrey: "#D3D3D3", lightpink: "#FFB6C1", lightsalmon: "#FFA07A",
-  lightseagreen: "#20B2AA", lightskyblue: "#87CEFA", lightslategray: "#778899", lightslategrey: "#778899",
-  lightsteelblue: "#B0C4DE", lightyellow: "#FFFFE0", lime: "#00FF00", limegreen: "#32CD32",
-  linen: "#FAF0E6", magenta: "#FF00FF", maroon: "#800000", mediumaquamarine: "#66CDAA",
-  mediumblue: "#0000CD", mediumorchid: "#BA55D3", mediumpurple: "#9370DB", mediumseagreen: "#3CB371",
-  mediumslateblue: "#7B68EE", mediumspringgreen: "#00FA9A", mediumturquoise: "#48D1CC", mediumvioletred: "#C71585",
-  midnightblue: "#191970", mintcream: "#F5FFFA", mistyrose: "#FFE4E1", moccasin: "#FFE4B5",
-  navajowhite: "#FFDEAD", navy: "#000080", oldlace: "#FDF5E6", olive: "#808000",
-  olivedrab: "#6B8E23", orange: "#FFA500", orangered: "#FF4500", orchid: "#DA70D6",
-  palegoldenrod: "#EEE8AA", palegreen: "#98FB98", paleturquoise: "#AFEEEE", palevioletred: "#DB7093",
-  papayawhip: "#FFEFD5", peachpuff: "#FFDAB9", peru: "#CD853F", pink: "#FFC0CB",
-  plum: "#DDA0DD", powderblue: "#B0E0E6", purple: "#800080", rebeccapurple: "#663399",
-  red: "#FF0000", rosybrown: "#BC8F8F", royalblue: "#4169E1", saddlebrown: "#8B4513",
-  salmon: "#FA8072", sandybrown: "#F4A460", seagreen: "#2E8B57", seashell: "#FFF5EE",
-  sienna: "#A0522D", silver: "#C0C0C0", skyblue: "#87CEEB", slateblue: "#6A5ACD",
-  slategray: "#708090", slategrey: "#708090", snow: "#FFFAFA", springgreen: "#00FF7F",
-  steelblue: "#4682B4", tan: "#D2B48C", teal: "#008080", thistle: "#D8BFD8",
-  tomato: "#FF6347", turquoise: "#40E0D0", violet: "#EE82EE", wheat: "#F5DEB3",
-  white: "#FFFFFF", whitesmoke: "#F5F5F5", yellow: "#FFFF00", yellowgreen: "#9ACD32",
-};
-
-function cssNamedColor(label: string): string | null {
-  return CSS_NAMED_COLORS[label.trim().toLowerCase()] ?? null;
-}
-
-/** Fixed-palette hex, then a common CSS/X11 color name, then a stable hashed color as a last resort. */
-export function swatchColorFor(label: string | null): string | null {
-  if (!label) return null;
-  return GARMENT_COLORS[label as GarmentColorLabel] ?? cssNamedColor(label) ?? hashColor(label);
-}
-
-function matchesKnownLabel(query: string, labels: readonly string[]): boolean {
-  const normalized = query.trim().toLowerCase();
-  return labels.some((label) => label.toLowerCase() === normalized);
+/** Currently-selected sizes, in `sizeList`'s fixed order regardless of tap order — supports
+ * selecting more than one size for an assorted-size batch line (see `toggleSize` below). */
+export function selectedSizesFrom(size: string | null): string[] {
+  return (size ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 export interface BillLineItemState {
@@ -163,6 +102,10 @@ export function BillLineItemCard({
   onChange,
   onRemove,
   extraColorOptions,
+  persistedColorOptions,
+  persistedCategoryOptions,
+  onAddCustomColor,
+  onAddCustomCategory,
 }: {
   item: BillLineItemState;
   label: string;
@@ -171,6 +114,12 @@ export function BillLineItemCard({
   onRemove?: () => void;
   /** Custom colours already used elsewhere in this bill, offered as quick-reuse chips. */
   extraColorOptions?: string[];
+  /** Custom colours/categories typed on a *previous* bill, remembered app-wide (customOptionsRepository) so they don't need retyping — offered as their own "Your colors"/"Your categories" chip sections. */
+  persistedColorOptions?: string[];
+  persistedCategoryOptions?: string[];
+  /** Called when the user commits a genuinely new freeform colour/category via "Add as new ...", so the caller can persist it for next time. */
+  onAddCustomColor?: (label: string) => void;
+  onAddCustomCategory?: (label: string) => void;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -191,12 +140,14 @@ export function BillLineItemCard({
   const sizeMode = categorySizeMode(item.category);
   const sizeList = sizeListFor(sizeMode);
   const categoryPresetLabels = useMemo(() => CATEGORY_PRESETS.map((preset) => preset.label), []);
+  const selectedSizes = selectedSizesFrom(item.size);
 
   function selectCategory(value: string) {
     const nextMode = categorySizeMode(value);
+    const nextList = sizeListFor(nextMode);
     const currentSizeStillValid = item.isCustomSize
       ? true
-      : Boolean(item.size) && sizeListFor(nextMode).includes(item.size as string);
+      : selectedSizesFrom(item.size).every((size) => nextList.includes(size));
     update({
       category: value,
       ...(currentSizeStillValid ? {} : { size: null, isCustomSize: false }),
@@ -205,15 +156,59 @@ export function BillLineItemCard({
     setCategoryQuery("");
   }
 
+  function addNewCategory(value: string) {
+    selectCategory(value);
+    onAddCustomCategory?.(value);
+  }
+
+  /** Toggles one size in/out of the selection — a line can cover more than one size at once
+   * (e.g. an assorted batch of waist sizes), stored as a comma-joined string in `item.size`. */
+  function toggleSize(size: string) {
+    const next = selectedSizes.includes(size)
+      ? selectedSizes.filter((s) => s !== size)
+      : [...selectedSizes, size];
+    // Keep sizeList's fixed order regardless of tap order, so the description/display is stable.
+    const ordered = sizeList.filter((s) => next.includes(s));
+    update({ size: ordered.length > 0 ? ordered.join(",") : null, isCustomSize: false });
+  }
+
   function selectColor(value: string) {
     update({ color: value });
     setColorOpen(false);
     setColorQuery("");
   }
 
+  function addNewColor(value: string) {
+    selectColor(value);
+    onAddCustomColor?.(value);
+  }
+
   const colorSwatch = swatchColorFor(item.color);
   const trimmedCategoryQuery = categoryQuery.trim();
   const trimmedColorQuery = colorQuery.trim();
+  const knownCategoryLabels = useMemo(
+    () => [...categoryPresetLabels, ...(persistedCategoryOptions ?? [])],
+    [categoryPresetLabels, persistedCategoryOptions],
+  );
+  const knownColorLabels = useMemo(
+    () => [...GARMENT_COLOR_LABELS, ...(persistedColorOptions ?? [])],
+    [persistedColorOptions],
+  );
+  /** "Your categories"/"Your colors" chips — persisted options not already offered elsewhere
+   * in this dropdown (the fixed presets, or this bill's own "used in this bill" list). */
+  const ownCategoryOptions = useMemo(
+    () => (persistedCategoryOptions ?? []).filter((label) => !matchesKnownLabel(label, categoryPresetLabels)),
+    [persistedCategoryOptions, categoryPresetLabels],
+  );
+  const ownColorOptions = useMemo(
+    () =>
+      (persistedColorOptions ?? []).filter(
+        (label) =>
+          !matchesKnownLabel(label, GARMENT_COLOR_LABELS) &&
+          !(extraColorOptions ?? []).some((c) => matchesKnownLabel(label, [c])),
+      ),
+    [persistedColorOptions, extraColorOptions],
+  );
 
   return (
     <View style={styles.card}>
@@ -294,10 +289,31 @@ export function BillLineItemCard({
               </Pressable>
             ))}
           </View>
-          {trimmedCategoryQuery && !matchesKnownLabel(trimmedCategoryQuery, categoryPresetLabels) ? (
+          {ownCategoryOptions.length > 0 ? (
+            <>
+              <Text style={styles.dropdownSectionLabel}>{t("entry.yourCategories")}</Text>
+              <View style={styles.chipRow}>
+                {ownCategoryOptions.map((catLabel) => (
+                  <Pressable
+                    key={catLabel}
+                    style={[styles.chip, item.category === catLabel && styles.chipActive]}
+                    onPress={() => selectCategory(catLabel)}
+                    accessibilityRole="button"
+                    accessibilityLabel={catLabel}
+                    accessibilityState={{ selected: item.category === catLabel }}
+                  >
+                    <Text style={[styles.chipText, item.category === catLabel && styles.chipTextActive]}>
+                      {catLabel}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+          {trimmedCategoryQuery && !matchesKnownLabel(trimmedCategoryQuery, knownCategoryLabels) ? (
             <Pressable
               style={styles.addNewRow}
-              onPress={() => selectCategory(trimmedCategoryQuery)}
+              onPress={() => addNewCategory(trimmedCategoryQuery)}
               accessibilityRole="button"
               accessibilityLabel={t("entry.addCategoryAsNew", { value: trimmedCategoryQuery })}
             >
@@ -338,26 +354,23 @@ export function BillLineItemCard({
           </Text>
         </View>
       </View>
+      <Text style={styles.sizeMultiHintText}>{t("entry.sizeMultiHint")}</Text>
       <View style={styles.chipRow}>
-        {sizeList.map((size) => (
-          <Pressable
-            key={size}
-            style={[styles.chip, !item.isCustomSize && item.size === size && styles.chipActive]}
-            onPress={() => update({ size, isCustomSize: false })}
-            accessibilityRole="button"
-            accessibilityLabel={size}
-            accessibilityState={{ selected: !item.isCustomSize && item.size === size }}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                !item.isCustomSize && item.size === size && styles.chipTextActive,
-              ]}
+        {sizeList.map((size) => {
+          const isSelected = !item.isCustomSize && selectedSizes.includes(size);
+          return (
+            <Pressable
+              key={size}
+              style={[styles.chip, isSelected && styles.chipActive]}
+              onPress={() => toggleSize(size)}
+              accessibilityRole="button"
+              accessibilityLabel={size}
+              accessibilityState={{ selected: isSelected }}
             >
-              {size}
-            </Text>
-          </Pressable>
-        ))}
+              <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{size}</Text>
+            </Pressable>
+          );
+        })}
         <Pressable
           style={[styles.chip, item.isCustomSize && styles.chipActive]}
           onPress={() => update({ size: "", isCustomSize: true })}
@@ -479,10 +492,38 @@ export function BillLineItemCard({
               </View>
             </>
           ) : null}
-          {trimmedColorQuery && !matchesKnownLabel(trimmedColorQuery, GARMENT_COLOR_LABELS) ? (
+          {ownColorOptions.length > 0 ? (
+            <>
+              <Text style={styles.dropdownSectionLabel}>{t("entry.yourColors")}</Text>
+              <View style={styles.chipRow}>
+                {ownColorOptions.map((label) => (
+                  <Pressable
+                    key={label}
+                    style={[styles.chip, styles.colorChip, item.color === label && styles.chipActive]}
+                    onPress={() => selectColor(label)}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected: item.color === label }}
+                  >
+                    <View
+                      style={[
+                        styles.swatchDot,
+                        styles.colorChipDot,
+                        { backgroundColor: swatchColorFor(label) ?? colors.border },
+                      ]}
+                    />
+                    <Text style={[styles.chipText, item.color === label && styles.chipTextActive]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+          {trimmedColorQuery && !matchesKnownLabel(trimmedColorQuery, knownColorLabels) ? (
             <Pressable
               style={styles.addNewRow}
-              onPress={() => selectColor(trimmedColorQuery)}
+              onPress={() => addNewColor(trimmedColorQuery)}
               accessibilityRole="button"
               accessibilityLabel={t("entry.addColorAsNew", { value: trimmedColorQuery })}
             >
@@ -799,6 +840,11 @@ const makeStyles = (colors: AppColors) =>
   sizeModeBadgeText: {
     ...theme.typography.caption,
     fontWeight: "700",
+  },
+  sizeMultiHintText: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    marginBottom: theme.spacing.xs,
   },
   sizeHintText: {
     ...theme.typography.caption,
