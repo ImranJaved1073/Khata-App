@@ -22,6 +22,13 @@
       "when": 1785096888200,
       "tag": "0002_huge_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786047261361,
+      "tag": "0003_chubby_leopardon",
+      "breakpoints": true
     }
   ]
 }

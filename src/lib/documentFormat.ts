@@ -3,8 +3,9 @@ import type {
   StatementDocumentData,
 } from "../repositories/documentRepository";
 import type { EntryWithLineItems } from "../repositories/entryRepository";
-import { GARMENT_COLORS, type GarmentColorLabel, colors } from "../theme/colors";
+import { colors } from "../theme/colors";
 import type { LineItem } from "../types/models";
+import { swatchColorFor } from "./garmentColor";
 import { formatMoney } from "./money";
 
 const MONTHS = [
@@ -46,9 +47,14 @@ export function shortRef(id: string, prefix = "KH-"): string {
   return `${prefix}${id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase()}`;
 }
 
+/**
+ * Delegates to the shared three-tier resolver (fixed 14-label palette -> CSS named colour ->
+ * hashed fallback, see garmentColor.ts) so a freeform/custom colour renders its real swatch on
+ * the PDF and the WhatsApp receipt image too, not just in the Add Items editor — kept as its own
+ * named export since it's already imported by name from several call sites.
+ */
 export function swatchHex(color: string | null): string | null {
-  if (!color) return null;
-  return GARMENT_COLORS[color as GarmentColorLabel] ?? null;
+  return swatchColorFor(color);
 }
 
 /** color · Size M — parts dropped gracefully, used as the grey sub-line under an item. */

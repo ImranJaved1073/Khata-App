@@ -21,6 +21,7 @@ import type { DocumentReceiptImageCaptureHandle } from "../../components/Documen
 import { DocumentReceiptImageCapture } from "../../components/DocumentReceiptImageCapture";
 import { db } from "../../db/client";
 import { buildBillHtml, buildBillText } from "../../lib/documentFormat";
+import { swatchColorFor } from "../../lib/garmentColor";
 import { formatMoney } from "../../lib/money";
 import { shareImage, shareImageToWhatsApp, sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import type { CustomersStackParamList } from "../../navigation/types";
@@ -29,7 +30,7 @@ import { getBillDocumentData } from "../../repositories/documentRepository";
 import type { EntryWithLineItems } from "../../repositories/entryRepository";
 import { deleteEntry, getEntry } from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
-import { GARMENT_COLORS, type AppColors, type GarmentColorLabel } from "../../theme/colors";
+import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { Customer, LineItem } from "../../types/models";
@@ -330,7 +331,7 @@ function LineItemRow({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const swatchColor = item.color ? GARMENT_COLORS[item.color as GarmentColorLabel] : undefined;
+  const swatchColor = swatchColorFor(item.color);
 
   return (
     <View style={styles.lineRow}>

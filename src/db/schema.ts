@@ -89,6 +89,21 @@ export const auditLog = sqliteTable("audit_log", {
     .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
 });
 
+/**
+ * Freeform colour/category labels the user has typed once, remembered so future line items can
+ * pick them from a list instead of retyping — see customOptionsRepository.ts. Deduplicated
+ * case-insensitively at the repository layer, not via a DB constraint (SQLite TEXT columns are
+ * case-sensitive by default and this avoids a COLLATE NOCASE migration wrinkle).
+ */
+export const customOptions = sqliteTable("custom_options", {
+  id: text("id").primaryKey(),
+  kind: text("kind", { enum: ["color", "category"] }).notNull(),
+  label: text("label").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+});
+
 /** Single-row table (id is always 1): business profile, locale, currency, and app lock config. */
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey(),

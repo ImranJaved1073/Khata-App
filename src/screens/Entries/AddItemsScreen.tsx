@@ -9,6 +9,12 @@ import { useTranslation } from "react-i18next";
 import { db } from "../../db/client";
 import { formatMoney, parseMoneyInput } from "../../lib/money";
 import { generateLineItemDescription } from "../../repositories/description";
+import {
+  addCustomCategory,
+  addCustomColor,
+  listCustomCategories,
+  listCustomColors,
+} from "../../repositories/customOptionsRepository";
 import { newId } from "../../repositories/ids";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { AppColors, GarmentColorLabel } from "../../theme/colors";
@@ -17,7 +23,12 @@ import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { CustomersStackParamList } from "../../navigation/types";
 import type { BillLineItemState } from "./BillLineItemCard";
-import { BillLineItemCard, CollapsedLineRow, buildInitialLineItem } from "./BillLineItemCard";
+import {
+  BillLineItemCard,
+  CATEGORY_PRESETS,
+  CollapsedLineRow,
+  buildInitialLineItem,
+} from "./BillLineItemCard";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "AddItems">;
 type Route = RouteProp<CustomersStackParamList, "AddItems">;
@@ -97,12 +108,37 @@ export function AddItemsScreen() {
     return match ?? buildInitialLineItem(newId());
   });
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
+  const [persistedColors, setPersistedColors] = useState<string[]>([]);
+  const [persistedCategories, setPersistedCategories] = useState<string[]>([]);
 
   useEffect(() => {
     getSettings(db)
       .then((settings) => setCurrencySymbol(settings.currencySymbol))
       .catch((error: Error) => console.error(error));
+    listCustomColors(db)
+      .then(setPersistedColors)
+      .catch((error: Error) => console.error(error));
+    listCustomCategories(db)
+      .then(setPersistedCategories)
+      .catch((error: Error) => console.error(error));
   }, []);
+
+  /** Remembers a freeform colour/category for reuse on future bills (customOptionsRepository) —
+   * updates local state immediately so the new chip is offered without waiting for a re-fetch. */
+  function handleAddCustomColor(label: string) {
+    addCustomColor(db, label, GARMENT_COLOR_LABELS)
+      .then(() => listCustomColors(db))
+      .then(setPersistedColors)
+      .catch((error: Error) => console.error(error));
+  }
+
+  function handleAddCustomCategory(label: string) {
+    const presetLabels = CATEGORY_PRESETS.map((preset) => preset.label);
+    addCustomCategory(db, label, presetLabels)
+      .then(() => listCustomCategories(db))
+      .then(setPersistedCategories)
+      .catch((error: Error) => console.error(error));
+  }
 
   function finalItems(): BillLineItemState[] {
     return commitLine(lineItems, activeLine);
@@ -205,6 +241,10 @@ export function AddItemsScreen() {
           onChange={handleLineItemChange}
           onRemove={isEditingExistingLine ? handleRemoveActiveLine : undefined}
           extraColorOptions={extraColorOptions}
+          persistedColorOptions={persistedColors}
+          persistedCategoryOptions={persistedCategories}
+          onAddCustomColor={handleAddCustomColor}
+          onAddCustomCategory={handleAddCustomCategory}
         />
 
         <Pressable

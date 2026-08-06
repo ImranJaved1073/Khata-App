@@ -2,6 +2,7 @@ export * from "./auditRepository";
 export * from "./backupRepository";
 export * from "./balance";
 export * from "./customerRepository";
+export * from "./customOptionsRepository";
 export * from "./dashboardRepository";
 export * from "./description";
 export * from "./documentRepository";
