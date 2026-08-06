@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Appearance, StyleSheet, Text, View } from "react-native";
+import { AppState, Appearance, StyleSheet, Text, View } from "react-native";
 import type { AppStateStatus } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import type { Theme as NavigationTheme } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 
 import "./src/i18n";
@@ -26,6 +27,8 @@ interface BootState {
   pinSet: boolean;
 }
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function App() {
   const { success: migrationsReady, error: migrationError } = useMigrations(db, migrations);
   const [bootError, setBootError] = useState<Error | null>(null);
@@ -41,12 +44,19 @@ export default function App() {
   }, [migrationsReady]);
 
   const error = migrationError ?? bootError;
+
+  useEffect(() => {
+    if (error || boot) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [error, boot]);
+
   if (error) {
     return <BootScreen>{`Database setup failed: ${error.message}`}</BootScreen>;
   }
 
   if (!migrationsReady || !boot) {
-    return <BootScreen />;
+    return null;
   }
 
   return (
@@ -139,16 +149,12 @@ function ThemedApp({
   );
 }
 
-/** Shown before the theme setting has loaded — follows the OS scheme so there's no light flash in dark mode. */
-function BootScreen({ children }: { children?: string }) {
+/** Shown only if boot fails — follows the OS scheme so there's no light flash in dark mode. */
+function BootScreen({ children }: { children: string }) {
   const palette = (Appearance.getColorScheme() ?? "light") === "dark" ? darkColors : lightColors;
   return (
     <View style={[styles.center, { backgroundColor: palette.background }]}>
-      {children ? (
-        <Text style={{ color: palette.danger, textAlign: "center" }}>{children}</Text>
-      ) : (
-        <ActivityIndicator size="large" color={palette.primary} />
-      )}
+      <Text style={{ color: palette.danger, textAlign: "center" }}>{children}</Text>
     </View>
   );
 }

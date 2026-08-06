@@ -36,7 +36,7 @@ Every amount is an integer number of paisa. Never introduce a float amount, neve
 - Directories under `src/screens/` match the feature areas in [`ui.md`](ui.md)'s screen table (Home, Customers, Entries, Reports, Settings, Lock).
 - Navigation route names and param types live in `src/navigation/types.ts` — update this file, not ad-hoc `useNavigation<any>()` casts, when a screen's params change.
 - A screen that navigates into a *different* tab's stack (e.g. Home's "+ New Customer" opening the Customers tab's form) needs a `CompositeNavigationProp` combining its own stack's `NativeStackNavigationProp` with the root `BottomTabNavigationProp<RootTabParamList>` — see `HomeScreen.tsx`. Don't reach for `useNavigation<any>()` for this; the composite type keeps `navigation.navigate("OtherTab", { screen: "OtherScreen" })` fully typed.
-- A subcomponent used by only one screen (e.g. `BillLineItemCard.tsx`, used only by `EntryFormScreen`) lives beside that screen in its `src/screens/<Area>/` folder, not in `src/components/`. Reserve `src/components/` for things reused across feature areas (`PlaceholderScreen`, and similar).
+- A subcomponent used by only one screen (e.g. `BillLineItemCard.tsx`, used only by `AddItemsScreen`) lives beside that screen in its `src/screens/<Area>/` folder, not in `src/components/`. Reserve `src/components/` for things reused across feature areas (`PlaceholderScreen`, and similar).
 
 ## Comments
 - Default to none. Only comment the non-obvious: a hidden constraint from the spec (e.g. "balance is never stored — always recomputed"), a workaround, or a rule a reader could plausibly get wrong. Don't comment what the code already says.

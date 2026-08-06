@@ -8,7 +8,21 @@ export type CustomersStackParamList = {
   CustomerList: { initialSort?: CustomerSort; balanceFilter?: CustomerBalanceFilter } | undefined;
   CustomerForm: { customerId?: string; initialName?: string } | undefined;
   CustomerKhata: { customerId: string };
-  EntryForm: { customerId: string; entryId?: string; mode: "simple" | "bill" };
+  EntryForm: {
+    customerId: string;
+    entryId?: string;
+    mode: "simple" | "bill";
+    /** JSON.stringify(BillLineItemState[]) — set when AddItems navigates back with updated items. */
+    itemsPayload?: string;
+  };
+  AddItems: {
+    customerId: string;
+    entryId?: string;
+    /** JSON.stringify(BillLineItemState[]) — the bill's items as committed so far. */
+    itemsPayload: string;
+    /** Key of the item to open already-active (tapped from the New Bill summary table), if any. */
+    activeKey?: string;
+  };
   BillSaved: { entryId: string };
   EntryDetail: { entryId: string };
   EntryHistory: { entryId: string };

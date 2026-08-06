@@ -1,0 +1,13 @@
+{
+  "files.watcherExclude": {
+    "**/android/**": true,
+    "**/ios/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.expo/**": true
+  },
+  "search.exclude": {
+    "**/android": true,
+    "**/ios": true
+  }
+}

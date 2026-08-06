@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CustomerFormScreen } from "../screens/Customers/CustomerFormScreen";
 import { CustomerKhataScreen } from "../screens/Customers/CustomerKhataScreen";
 import { CustomerListScreen } from "../screens/Customers/CustomerListScreen";
+import { AddItemsScreen } from "../screens/Entries/AddItemsScreen";
 import { BillSavedScreen } from "../screens/Entries/BillSavedScreen";
 import { EntryDetailScreen } from "../screens/Entries/EntryDetailScreen";
 import { EntryFormScreen } from "../screens/Entries/EntryFormScreen";
@@ -35,6 +36,11 @@ export function CustomersStack() {
         name="EntryForm"
         component={EntryFormScreen}
         options={{ title: t("khata.newEntry") }}
+      />
+      <Stack.Screen
+        name="AddItems"
+        component={AddItemsScreen}
+        options={{ title: t("entry.addItems") }}
       />
       <Stack.Screen
         name="BillSaved"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +17,12 @@ import { useTranslation } from "react-i18next";
 
 import type { ActionSheetOption } from "../../components/ActionSheet";
 import { ActionSheet } from "../../components/ActionSheet";
+import type { DocumentReceiptImageCaptureHandle } from "../../components/DocumentReceiptImageCapture";
+import { DocumentReceiptImageCapture } from "../../components/DocumentReceiptImageCapture";
 import { db } from "../../db/client";
 import { buildBillHtml, buildBillText } from "../../lib/documentFormat";
 import { formatMoney } from "../../lib/money";
-import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
+import { shareImage, shareImageToWhatsApp, sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { getCustomer } from "../../repositories/customerRepository";
 import { getBillDocumentData } from "../../repositories/documentRepository";
@@ -49,6 +51,7 @@ export function EntryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const imageCaptureRef = useRef<DocumentReceiptImageCaptureHandle>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,7 +89,20 @@ export function EntryDetailScreen() {
       const data = await getBillDocumentData(db, entry.id);
       if (!data) return;
       if (method === "whatsapp") {
-        shareViaWhatsApp(buildBillText(data), data.customer.phone);
+        const uri = await imageCaptureRef.current?.captureBill(data);
+        if (!uri) {
+          Alert.alert(t("share.unavailable"));
+          return;
+        }
+        const sentDirectly = await shareImageToWhatsApp(uri, data.customer.phone, buildBillText(data));
+        if (!sentDirectly) {
+          const shared = await shareImage(uri, t("share.billTitle"));
+          if (!shared) {
+            Alert.alert(t("share.unavailable"));
+            return;
+          }
+          await shareViaWhatsApp(buildBillText(data), data.customer.phone);
+        }
       } else if (method === "sms") {
         shareViaSms(buildBillText(data), data.customer.phone);
       } else {
@@ -266,6 +282,7 @@ export function EntryDetailScreen() {
         options={shareOptions}
         cancelLabel={t("customerForm.cancel")}
       />
+      <DocumentReceiptImageCapture ref={imageCaptureRef} />
     </View>
   );
 }

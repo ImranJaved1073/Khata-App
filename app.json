@@ -39,6 +39,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }
+      ],
+      "expo-build-properties",
+      [
+        "react-native-share",
+        {
+          "ios": ["whatsapp"],
+          "android": ["com.whatsapp", "com.whatsapp.w4b"]
+        }
       ]
     ]
   }

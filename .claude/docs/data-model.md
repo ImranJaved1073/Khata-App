@@ -41,7 +41,7 @@ One row on a bill.
 | entryId | uuid | FK → entries |
 | itemName | text | e.g. "Lawn Kurta" |
 | size | text? | S/M/L/XL/XXL/custom |
-| color | text? | must be one of the garment palette labels — see below |
+| color | text? | one of the garment palette labels, or a freeform custom label — see below |
 | quantity | int | default 1 |
 | rate | int (paisa) | per unit |
 | amount | int (paisa) | = quantity × rate |
@@ -53,13 +53,15 @@ One row on a bill.
 ### Auto-generated description (spec 7.3)
 `generateLineItemDescription()` in [`src/repositories/description.ts`](../../src/repositories/description.ts).
 
-Format: `{quantity}x {color} {item_name} ({size})` — empty parts dropped gracefully.
-Examples: `1x Navy Blue Lawn Kurta (M)`, `3x Maroon Cotton Shalwar (XL)`, `2x White Kameez` (no size).
+Format: `{quantity} {color} {item_name} ({size})` — empty parts dropped gracefully. (Revised 2026-08-06, user request — the leading "x" after quantity was dropped app-wide, since this same text is what's shown in the Add Items auto-caption, Entry detail, Khata entries, Bill Saved, the PDF item rows, *and* the WhatsApp/SMS share text; was `{quantity}x {color} {item_name} ({size})` before this pass.)
+Examples: `1 Navy Blue Lawn Kurta (M)`, `3 Maroon Cotton Shalwar (XL)`, `2 White Kameez` (no size).
 
 Regenerate whenever name/size/color/quantity changes, **unless** `descriptionTouched` is true (user has manually edited the text).
 
 ### Garment color palette (spec 7.4)
-Fixed swatch set in [`src/theme/colors.ts`](../../src/theme/colors.ts) (`GARMENT_COLORS`). Store the label string on `line_items.color`; render the swatch from the hex map. Don't accept freeform color text in the color picker UI — it must be one of these 14 labels (White, Black, Navy Blue, Sky Blue, Maroon, Red, Bottle Green, Mustard, Beige, Grey, Pink, Purple, Brown, Off-White/Cream).
+Fixed swatch set in [`src/theme/colors.ts`](../../src/theme/colors.ts) (`GARMENT_COLORS`, 14 labels: White, Black, Navy Blue, Sky Blue, Maroon, Red, Bottle Green, Mustard, Beige, Grey, Pink, Purple, Brown, Off-White/Cream). Store the label string on `line_items.color`; render the swatch from the hex map when the label is one of these 14.
+
+**Freeform custom colors are allowed** (revised 2026-07-28, Add Items redesign — a deliberate product decision overriding this rule's original "must be one of these 14 labels" wording). The colour picker on `AddItemsScreen` (`BillLineItemCard.tsx`'s colour dropdown) is a searchable list of the 14 palette labels plus an "Add '{text}' as new colour" action that stores whatever freeform text the user typed. `swatchColorFor()` (`BillLineItemCard.tsx`) resolves the swatch dot in three tiers: an exact-case match against the 14-label `GARMENT_COLORS` palette, then (revised 2026-08-06, user request) a case-insensitive lookup against `CSS_NAMED_COLORS` — a hand-rolled table of the ~147 standard CSS/X11 color names (`blue`, `teal`, `maroon`, `turquoise`, ...) — so a common color name typed freeform (e.g. "blue") still renders its real color instead of an arbitrary one, and only falls back to a deterministic hash-to-HSL color for a name that matches neither. Custom colors added while editing a bill are also collected (from the in-progress `lineItems`, filtered to whatever isn't one of the 14 palette labels) and offered back as extra "Used in this bill" chips for the rest of that bill, so a second line item can reuse one in a tap instead of retyping it — this list isn't persisted beyond the bill being edited. All three tiers are only wired into the Add Items editor, its collapsed rows, and the New Bill summary table — other places that render a line item's swatch (`BillSavedScreen`, `EntryDetailScreen`, `EntryHistoryScreen`, the PDF/statement builders in `documentFormat.ts`) still do a direct `GARMENT_COLORS[color]` lookup and simply render no swatch for a custom color (existing graceful-degradation behavior, unchanged). A future pass could route all of these through `swatchColorFor()` for consistency.
 
 ## audit_log
 Every create/edit/delete on a customer, entry, or line_item writes a row here — this is what lets a customer be shown proof nothing was tampered with.

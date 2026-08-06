@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,13 +19,15 @@ import { ActionSheet } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DateField } from "../../components/DateField";
+import type { DocumentReceiptImageCaptureHandle } from "../../components/DocumentReceiptImageCapture";
+import { DocumentReceiptImageCapture } from "../../components/DocumentReceiptImageCapture";
 import { db } from "../../db/client";
 import { formatTimeOfDay } from "../../lib/dateFormat";
 import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
 import { buildEntriesCsv, buildWorkbookBase64 } from "../../lib/exportData";
 import { CSV_MIME, XLSX_MIME, writeAndShareFile } from "../../lib/exportFile";
 import { formatMoney } from "../../lib/money";
-import { sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
+import { shareImage, shareImageToWhatsApp, sharePdf, shareViaSms, shareViaWhatsApp } from "../../lib/share";
 import { getInitials } from "../../lib/textFormat";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { computeBalanceFromEntries } from "../../repositories/balance";
@@ -117,6 +119,7 @@ export function CustomerKhataScreen() {
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ hasEntries: boolean } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const imageCaptureRef = useRef<DocumentReceiptImageCaptureHandle>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,7 +174,20 @@ export function CustomerKhataScreen() {
       const data = await getStatementDocumentData(db, customerId, { dateFrom, dateTo });
       if (!data) return;
       if (method === "whatsapp") {
-        shareViaWhatsApp(buildStatementText(data), data.customer.phone);
+        const uri = await imageCaptureRef.current?.captureStatement(data);
+        if (!uri) {
+          Alert.alert(t("share.unavailable"));
+          return;
+        }
+        const sentDirectly = await shareImageToWhatsApp(uri, data.customer.phone, buildStatementText(data));
+        if (!sentDirectly) {
+          const shared = await shareImage(uri, t("share.statementTitle"));
+          if (!shared) {
+            Alert.alert(t("share.unavailable"));
+            return;
+          }
+          await shareViaWhatsApp(buildStatementText(data), data.customer.phone);
+        }
       } else if (method === "sms") {
         shareViaSms(buildStatementText(data), data.customer.phone);
       } else {
@@ -727,6 +743,7 @@ export function CustomerKhataScreen() {
         onCancel={() => setDeleteDialog(null)}
         onConfirm={handleConfirmDeleteCustomer}
       />
+      <DocumentReceiptImageCapture ref={imageCaptureRef} />
     </View>
   );
 }

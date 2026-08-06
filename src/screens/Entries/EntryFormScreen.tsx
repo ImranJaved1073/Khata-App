@@ -37,9 +37,12 @@ import {
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
 import { getCustomer } from "../../repositories/customerRepository";
-import { generateLineItemDescription } from "../../repositories/description";
-import { createEntry, getEntry, updateEntry } from "../../repositories/entryRepository";
-import { newId } from "../../repositories/ids";
+import {
+  createEntry,
+  getEntry,
+  listEntriesForCustomer,
+  updateEntry,
+} from "../../repositories/entryRepository";
 import { getSettings } from "../../repositories/settingsRepository";
 import type { EntryDirection, LineItem } from "../../types/models";
 import type { AppColors } from "../../theme/colors";
@@ -47,35 +50,13 @@ import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import { CalculatorKeypad } from "./CalculatorKeypad";
 import type { BillLineItemState } from "./BillLineItemCard";
-import {
-  BillLineItemCard,
-  CollapsedLineRow,
-  GARMENT_SIZES,
-  buildInitialLineItem,
-} from "./BillLineItemCard";
+import { GARMENT_SIZES, swatchColorFor } from "./BillLineItemCard";
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryForm">;
 type Route = RouteProp<CustomersStackParamList, "EntryForm">;
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-function isLineFilled(item: BillLineItemState): boolean {
-  return item.itemName.trim().length > 0;
-}
-
-function regenerateIfUntouched(item: BillLineItemState): BillLineItemState {
-  if (item.descriptionTouched) return item;
-  return {
-    ...item,
-    description: generateLineItemDescription({
-      quantity: item.quantity,
-      color: item.color,
-      itemName: item.itemName,
-      size: item.size,
-    }),
-  };
 }
 
 /** Replaces the previously-appended auto block (if still present) with the new one, leaving any of the user's own text untouched. */
@@ -92,27 +73,12 @@ function mergeNoteWithLineDescriptions(
   return base ? `${base}\n${nextAutoBlock}` : nextAutoBlock;
 }
 
-/** Commits the active line into the list — updating it in place if it already exists (by key), appending otherwise. No-op if the active line is blank. */
-function commitLine(
-  lineItems: BillLineItemState[],
-  activeLine: BillLineItemState,
-): BillLineItemState[] {
-  if (!isLineFilled(activeLine)) return lineItems;
-  const existingIndex = lineItems.findIndex((li) => li.key === activeLine.key);
-  const next = [...lineItems];
-  if (existingIndex !== -1) {
-    next[existingIndex] = activeLine;
-  } else {
-    next.push(activeLine);
-  }
-  return next;
-}
-
 /** A saved line item's `id` doubles as its client-side `key`, so edits map back to the same row. */
 function lineItemStateFromModel(li: LineItem): BillLineItemState {
   const isPresetSize = li.size ? (GARMENT_SIZES as readonly string[]).includes(li.size) : false;
   return {
     key: li.id,
+    category: null,
     itemName: li.itemName,
     size: li.size,
     isCustomSize: Boolean(li.size) && !isPresetSize,
@@ -141,15 +107,13 @@ export function EntryFormScreen() {
   const [note, setNote] = useState("");
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [lineItems, setLineItems] = useState<BillLineItemState[]>([]);
-  const [activeLine, setActiveLine] = useState<BillLineItemState>(() =>
-    buildInitialLineItem(newId()),
-  );
   const [lastAutoNoteBlock, setLastAutoNoteBlock] = useState("");
   const [saving, setSaving] = useState(false);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [billError, setBillError] = useState<string | null>(null);
   const [currencySymbol, setCurrencySymbol] = useState("Rs");
   const [customerName, setCustomerName] = useState("");
+  const [billNumber, setBillNumber] = useState<number | null>(null);
 
   useEffect(() => {
     getSettings(db)
@@ -183,6 +147,36 @@ export function EntryFormScreen() {
       })
       .finally(() => setLoading(false));
   }, [entryId, t]);
+
+  // Bill Number is a display-only sequential count of this customer's bills (never persisted —
+  // there's no such column on entries). Computed from creation order so it stays stable on edit.
+  useEffect(() => {
+    if (mode !== "bill") return;
+    listEntriesForCustomer(db, customerId, { includeDeleted: true })
+      .then((allEntries) => {
+        const bills = allEntries
+          .filter((e) => e.type === "bill")
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        const idx = entryId ? bills.findIndex((e) => e.id === entryId) : -1;
+        setBillNumber(idx !== -1 ? idx + 1 : bills.length + 1);
+      })
+      .catch((error: Error) => console.error(error));
+  }, [mode, customerId, entryId]);
+
+  // AddItemsScreen reports the updated line items back by merging `itemsPayload` into this
+  // already-mounted route's params (see AddItemsScreen's handleBack) rather than any return value.
+  useEffect(() => {
+    if (mode !== "bill") return;
+    const payload = route.params.itemsPayload;
+    if (payload === undefined) return;
+    try {
+      const items = JSON.parse(payload) as BillLineItemState[];
+      applyLineCommit(items);
+    } catch (error) {
+      console.error(error);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, route.params.itemsPayload]);
 
   // The date field defaults to "today" once at mount and is otherwise left for the user to edit.
   // If this screen is left open across midnight (backgrounded mid-bill, resumed the next day),
@@ -237,24 +231,13 @@ export function EntryFormScreen() {
     return nextAutoBlock;
   }
 
-  function handleLineItemChange(next: BillLineItemState) {
-    setActiveLine(regenerateIfUntouched(next));
-    if (billError) setBillError(null);
-  }
-
-  function handleAddLine() {
-    applyLineCommit(commitLine(lineItems, activeLine));
-    setActiveLine(buildInitialLineItem(newId()));
-  }
-
-  function handleEditLine(item: BillLineItemState) {
-    applyLineCommit(commitLine(lineItems, activeLine));
-    setActiveLine(item);
-  }
-
-  function handleRemoveActiveLine() {
-    applyLineCommit(lineItems.filter((li) => li.key !== activeLine.key));
-    setActiveLine(buildInitialLineItem(newId()));
+  function openAddItems(activeKey?: string) {
+    navigation.navigate("AddItems", {
+      customerId,
+      entryId,
+      itemsPayload: JSON.stringify(lineItems),
+      activeKey,
+    });
   }
 
   async function handlePickAttachment() {
@@ -317,8 +300,7 @@ export function EntryFormScreen() {
   }
 
   async function handleSaveBill() {
-    const finalItems = commitLine(lineItems, activeLine);
-    const validItems = finalItems.filter((item) => item.itemName.trim().length > 0);
+    const validItems = lineItems.filter((item) => item.itemName.trim().length > 0);
     const hasInvalidRate = validItems.some((item) => parseMoneyInput(item.rateInput) <= 0);
     if (validItems.length === 0 || hasInvalidRate) {
       setBillError(t("entry.billValidationError"));
@@ -326,7 +308,7 @@ export function EntryFormScreen() {
     }
     setBillError(null);
 
-    const finalAutoBlock = finalItems.map((li) => li.description).filter(Boolean).join("\n");
+    const finalAutoBlock = lineItems.map((li) => li.description).filter(Boolean).join("\n");
     const finalNote = mergeNoteWithLineDescriptions(note, lastAutoNoteBlock, finalAutoBlock);
 
     const mappedLineItems = validItems.map((item) => ({
@@ -370,18 +352,8 @@ export function EntryFormScreen() {
     }
   }
 
-  const isEditingExistingLine = lineItems.some((li) => li.key === activeLine.key);
-  const activeLineNumber =
-    lineItems.findIndex((li) => li.key === activeLine.key) !== -1
-      ? lineItems.findIndex((li) => li.key === activeLine.key) + 1
-      : lineItems.length + 1;
-
   const lineAmount = (item: BillLineItemState) => item.quantity * parseMoneyInput(item.rateInput);
-  const billTotal =
-    lineItems
-      .filter((li) => li.key !== activeLine.key)
-      .reduce((sum, item) => sum + lineAmount(item), 0) +
-    (isLineFilled(activeLine) ? lineAmount(activeLine) : 0);
+  const billTotal = lineItems.reduce((sum, item) => sum + lineAmount(item), 0);
 
   if (loading) {
     return (
@@ -399,52 +371,130 @@ export function EntryFormScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.dateNoteRow}>
-          <DateField value={entryDate} onChange={setEntryDate} style={styles.dateNoteField} />
-
-          <Pressable
-            style={[styles.attachmentButton, styles.dateNoteField]}
-            onPress={handlePickAttachment}
-            accessibilityRole="button"
-            accessibilityLabel={t("entry.attachment")}
-          >
-            {attachmentUri ? (
-              <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
-            ) : (
-              <Ionicons name="camera-outline" size={18} color={colors.primary} />
-            )}
-            <Text style={styles.attachmentButtonText} numberOfLines={1}>
-              {t("entry.attachment")}
-            </Text>
-          </Pressable>
+          <Field label={t("entry.billNumber")} style={styles.dateNoteField}>
+            <View style={styles.readOnlyField}>
+              <Text style={styles.readOnlyFieldText} numberOfLines={1}>
+                {billNumber ?? "—"}
+              </Text>
+            </View>
+          </Field>
+          <DateField
+            value={entryDate}
+            onChange={setEntryDate}
+            label={t("entry.date")}
+            style={styles.dateNoteField}
+          />
         </View>
 
-        {lineItems
-          .filter((item) => item.key !== activeLine.key)
-          .map((item) => (
-            <CollapsedLineRow
-              key={item.key}
-              item={item}
-              currencySymbol={currencySymbol}
-              onPress={() => handleEditLine(item)}
-            />
-          ))}
+        <View style={styles.addItemsCard}>
+          <Pressable
+            style={styles.addItemsHeaderRow}
+            onPress={() => openAddItems()}
+            accessibilityRole="button"
+            accessibilityLabel={t("entry.addItems")}
+          >
+            <Text style={styles.addItemsHeaderText}>{t("entry.addItems")}</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          </Pressable>
 
-        <BillLineItemCard
-          item={activeLine}
-          label={`${t("entry.lineItem")} ${activeLineNumber}`}
-          currencySymbol={currencySymbol}
-          onChange={handleLineItemChange}
-          onRemove={isEditingExistingLine ? handleRemoveActiveLine : undefined}
-        />
+          {lineItems.length > 0 ? (
+            <>
+              <View style={styles.itemsTableHeader}>
+                <Text style={[styles.itemsTableHeaderText, styles.itemsTableItemCol]}>
+                  {t("entry.tableItem")}
+                </Text>
+                <Text style={[styles.itemsTableHeaderText, styles.itemsTableQtyCol]}>
+                  {t("entry.tableQty")}
+                </Text>
+                <Text style={[styles.itemsTableHeaderText, styles.itemsTableRateCol]}>
+                  {t("entry.rate")}
+                </Text>
+                <Text style={[styles.itemsTableHeaderText, styles.itemsTableAmountCol]}>
+                  {t("entry.tableAmount")}
+                </Text>
+              </View>
+              {lineItems.map((item) => {
+                const swatch = swatchColorFor(item.color);
+                const rate = parseMoneyInput(item.rateInput);
+                return (
+                  <Pressable
+                    key={item.key}
+                    style={styles.itemsTableRow}
+                    onPress={() => openAddItems(item.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.itemName}
+                  >
+                    <View style={[styles.itemsTableItemCol, styles.itemsTableItemInner]}>
+                      {swatch ? (
+                        <View style={[styles.itemsTableSwatch, { backgroundColor: swatch }]} />
+                      ) : null}
+                      <View style={styles.itemsTableItemTextWrap}>
+                        <Text style={styles.itemsTableItemText} numberOfLines={1}>
+                          {item.itemName}
+                        </Text>
+                        {item.size ? (
+                          <Text style={styles.itemsTableItemSize} numberOfLines={1}>
+                            {item.size}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Text style={[styles.itemsTableCellText, styles.itemsTableQtyCol]}>
+                      {item.quantity}
+                    </Text>
+                    <Text
+                      style={[styles.itemsTableCellText, styles.itemsTableRateCol]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      {formatMoney(rate, "").trim()}
+                    </Text>
+                    <Text
+                      style={[styles.itemsTableAmountText, styles.itemsTableAmountCol]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                    >
+                      {formatMoney(item.quantity * rate, "").trim()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </>
+          ) : null}
+        </View>
+
+        <View style={styles.totalsBox}>
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLabel}>{t("entry.itemsSubtotal")}</Text>
+            <Text style={styles.totalsValue} numberOfLines={1}>
+              {formatMoney(billTotal, currencySymbol)}
+            </Text>
+          </View>
+          <View style={styles.totalsDivider} />
+          <View style={styles.totalsRow}>
+            <Text style={styles.invoiceLabel}>{t("entry.invoiceAmount")}</Text>
+            <Text style={styles.invoiceValue} numberOfLines={1} adjustsFontSizeToFit>
+              {formatMoney(billTotal, currencySymbol)}
+            </Text>
+          </View>
+        </View>
 
         <Pressable
-          style={styles.addLineButton}
-          onPress={handleAddLine}
+          style={styles.attachmentButton}
+          onPress={handlePickAttachment}
           accessibilityRole="button"
-          accessibilityLabel={t("entry.addLine")}
+          accessibilityLabel={t("entry.attachment")}
         >
-          <Ionicons name="add" size={18} color={colors.primary} />
-          <Text style={styles.addLineButtonText}>{t("entry.addLine")}</Text>
+          {attachmentUri ? (
+            <Image source={{ uri: attachmentUri }} style={styles.attachmentThumb} />
+          ) : (
+            <Ionicons name="attach-outline" size={18} color={colors.primary} />
+          )}
+          <Text style={styles.attachmentButtonText} numberOfLines={1}>
+            {t("entry.attachment")}
+          </Text>
         </Pressable>
 
         <View style={styles.noteHeaderRow}>
@@ -750,22 +800,148 @@ const makeStyles = (colors: AppColors) =>
     color: colors.onPrimary,
     fontWeight: "700",
   },
-  addLineButton: {
+  readOnlyField: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  readOnlyFieldText: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+  },
+  addItemsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    marginBottom: theme.spacing.md,
+  },
+  addItemsHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderStyle: "dashed",
-    marginBottom: theme.spacing.lg,
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: colors.background,
   },
-  addLineButtonText: {
-    ...theme.typography.body,
+  addItemsHeaderText: {
+    ...theme.typography.heading,
     color: colors.primary,
-    fontWeight: "600",
+  },
+  itemsTableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  itemsTableHeaderText: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "700",
+  },
+  itemsTableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  itemsTableItemCol: {
+    flex: 2.2,
+  },
+  itemsTableQtyCol: {
+    flex: 0.4,
+    minWidth: 20,
+    textAlign: "center",
+  },
+  itemsTableRateCol: {
+    flex: 0.8,
+    minWidth: 48,
+    textAlign: "right",
+  },
+  itemsTableAmountCol: {
+    flex: 0.9,
+    minWidth: 56,
+    textAlign: "right",
+  },
+  itemsTableItemInner: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  itemsTableSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginEnd: theme.spacing.sm,
+    flexShrink: 0,
+  },
+  itemsTableItemTextWrap: {
+    flex: 1,
+  },
+  itemsTableItemText: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+  },
+  itemsTableItemSize: {
+    ...theme.typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  itemsTableCellText: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+  },
+  itemsTableAmountText: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  totalsBox: {
+    backgroundColor: colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  totalsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.md,
+  },
+  totalsLabel: {
+    ...theme.typography.body,
+    color: colors.textSecondary,
+  },
+  totalsValue: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+  },
+  totalsDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    borderStyle: "dashed",
+  },
+  invoiceLabel: {
+    ...theme.typography.body,
+    color: colors.textPrimary,
+    fontWeight: "700",
+  },
+  invoiceValue: {
+    ...theme.typography.money,
+    color: colors.primary,
   },
   noteHeaderRow: {
     flexDirection: "row",
@@ -794,6 +970,7 @@ const makeStyles = (colors: AppColors) =>
     borderWidth: 1,
     borderColor: colors.primary,
     borderStyle: "dashed",
+    marginBottom: theme.spacing.md,
   },
   attachmentButtonText: {
     ...theme.typography.caption,

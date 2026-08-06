@@ -16,7 +16,7 @@ const MONTHS = [
  * Business identity shown on every receipt/statement header (logo initials + name).
  * Constant until the Settings screen (Phase 6) lets the owner set `settings.businessName`.
  */
-const DEFAULT_BUSINESS_NAME = "Master Fashion";
+export const DEFAULT_BUSINESS_NAME = "Master Fashion";
 
 function escapeHtml(value: string): string {
   return value
@@ -27,7 +27,7 @@ function escapeHtml(value: string): string {
 }
 
 /** "2026-07-24" or a full ISO timestamp -> "24 Jul 2026", without relying on Intl. */
-function formatDisplayDate(iso: string): string {
+export function formatDisplayDate(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!match) return iso;
   const [, year, month, day] = match;
@@ -35,29 +35,29 @@ function formatDisplayDate(iso: string): string {
   return `${day} ${monthName} ${year}`;
 }
 
-function initials(name: string): string {
+export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   const joined = parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
   return joined || "•";
 }
 
 /** Stable short human-facing reference derived from a UUID (not stored — display only). */
-function shortRef(id: string, prefix = "KH-"): string {
+export function shortRef(id: string, prefix = "KH-"): string {
   return `${prefix}${id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase()}`;
 }
 
-function swatchHex(color: string | null): string | null {
+export function swatchHex(color: string | null): string | null {
   if (!color) return null;
   return GARMENT_COLORS[color as GarmentColorLabel] ?? null;
 }
 
 /** color · Size M — parts dropped gracefully, used as the grey sub-line under an item. */
-function lineSubDescriptor(item: LineItem): string {
+export function lineSubDescriptor(item: LineItem): string {
   const parts = [item.color, item.size ? `Size ${item.size}` : null].filter(Boolean) as string[];
   return parts.join(" · ");
 }
 
-function totalQuantity(entry: EntryWithLineItems): number {
+export function totalQuantity(entry: EntryWithLineItems): number {
   return entry.lineItems.reduce((sum, li) => sum + li.quantity, 0);
 }
 
