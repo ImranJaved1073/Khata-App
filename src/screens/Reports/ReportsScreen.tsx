@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DateField } from "../../components/DateField";
 import { StatCard } from "../../components/StatCard";
 import { db } from "../../db/client";
+import { localDateString } from "../../lib/dateFormat";
 import {
   buildEntriesCsv,
   buildWorkbookBase64,
@@ -42,10 +43,6 @@ function formatRangeDate(dateString: string): string {
     month: "short",
     year: "numeric",
   });
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export function ReportsScreen() {
@@ -203,13 +200,13 @@ export function ReportsScreen() {
         {rangeExpanded ? (
           <View style={styles.dateRow}>
             <DateField
-              value={dateFrom || todayIso()}
+              value={dateFrom || localDateString()}
               onChange={setDateFrom}
               label={t("reports.dateFrom")}
               style={styles.dateField}
             />
             <DateField
-              value={dateTo || todayIso()}
+              value={dateTo || localDateString()}
               onChange={setDateTo}
               label={t("reports.dateTo")}
               style={styles.dateField}

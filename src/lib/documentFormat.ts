@@ -5,6 +5,7 @@ import type {
 import type { EntryWithLineItems } from "../repositories/entryRepository";
 import { colors } from "../theme/colors";
 import type { LineItem } from "../types/models";
+import { localDateString } from "./dateFormat";
 import { swatchColorFor } from "./garmentColor";
 import { formatMoney } from "./money";
 
@@ -135,7 +136,7 @@ export function buildBillHtml(data: BillDocumentData): string {
   const businessName = settings.businessName || DEFAULT_BUSINESS_NAME;
   const currency = settings.currencySymbol;
   const isCashOut = entry.direction === "cash_out";
-  const generatedDate = formatDisplayDate(new Date().toISOString());
+  const generatedDate = formatDisplayDate(localDateString());
 
   const header = `
     <div class="header">

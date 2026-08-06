@@ -22,7 +22,7 @@ import { DateField } from "../../components/DateField";
 import type { DocumentReceiptImageCaptureHandle } from "../../components/DocumentReceiptImageCapture";
 import { DocumentReceiptImageCapture } from "../../components/DocumentReceiptImageCapture";
 import { db } from "../../db/client";
-import { formatTimeOfDay } from "../../lib/dateFormat";
+import { formatTimeOfDay, localDateString } from "../../lib/dateFormat";
 import { buildStatementHtml, buildStatementText } from "../../lib/documentFormat";
 import { buildEntriesCsv, buildWorkbookBase64 } from "../../lib/exportData";
 import { CSV_MIME, XLSX_MIME, writeAndShareFile } from "../../lib/exportFile";
@@ -55,17 +55,13 @@ function isValidDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 type StatementPreset = "month" | "last30" | "allTime" | "custom";
 
 function computePresetRange(
   preset: StatementPreset,
   current: { from: string; to: string },
 ): { from: string; to: string } {
-  const today = todayIso();
+  const today = localDateString();
   if (preset === "month") {
     const now = new Date();
     const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
@@ -74,7 +70,7 @@ function computePresetRange(
   if (preset === "last30") {
     const from = new Date();
     from.setDate(from.getDate() - 29);
-    return { from: from.toISOString().slice(0, 10), to: today };
+    return { from: localDateString(from), to: today };
   }
   if (preset === "allTime") {
     return { from: "", to: "" };
@@ -554,7 +550,7 @@ export function CustomerKhataScreen() {
           </View>
           <View style={styles.statementRangeRow}>
             <DateField
-              value={statementDateFrom || todayIso()}
+              value={statementDateFrom || localDateString()}
               onChange={(next) => {
                 setStatementDateFrom(next);
                 setStatementPreset("custom");
@@ -563,7 +559,7 @@ export function CustomerKhataScreen() {
               style={styles.statementDateField}
             />
             <DateField
-              value={statementDateTo || todayIso()}
+              value={statementDateTo || localDateString()}
               onChange={(next) => {
                 setStatementDateTo(next);
                 setStatementPreset("custom");

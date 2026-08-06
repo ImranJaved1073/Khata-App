@@ -34,6 +34,7 @@ import {
   inputOperator,
   inputPercent,
 } from "../../lib/calculator";
+import { localDateString } from "../../lib/dateFormat";
 import { swatchColorFor } from "../../lib/garmentColor";
 import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
 import type { CustomersStackParamList } from "../../navigation/types";
@@ -55,10 +56,6 @@ import { GARMENT_SIZES, NUMERIC_SIZES, selectedSizesFrom } from "./BillLineItemC
 
 type Navigation = NativeStackNavigationProp<CustomersStackParamList, "EntryForm">;
 type Route = RouteProp<CustomersStackParamList, "EntryForm">;
-
-function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /** Replaces the previously-appended auto block (if still present) with the new one, leaving any of the user's own text untouched. */
 function mergeNoteWithLineDescriptions(
@@ -114,7 +111,7 @@ export function EntryFormScreen() {
   const [loading, setLoading] = useState(isEditMode);
   const [direction, setDirection] = useState<EntryDirection>("cash_out");
   const [calc, setCalc] = useState<CalculatorState>(() => createCalculatorState(0));
-  const [entryDate, setEntryDate] = useState(todayDate());
+  const [entryDate, setEntryDate] = useState(localDateString());
   const autoTodayRef = useRef(entryDate);
   const [note, setNote] = useState("");
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
@@ -199,7 +196,7 @@ export function EntryFormScreen() {
     if (isEditMode) return;
     const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
       if (nextState !== "active") return;
-      const current = todayDate();
+      const current = localDateString();
       if (current === autoTodayRef.current) return;
       setEntryDate((prev) => (prev === autoTodayRef.current ? current : prev));
       autoTodayRef.current = current;

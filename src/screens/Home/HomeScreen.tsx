@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "../../components/Avatar";
 import { StatCard } from "../../components/StatCard";
 import { db } from "../../db/client";
-import { formatTimeOfDay } from "../../lib/dateFormat";
+import { formatTimeOfDay, localDateString } from "../../lib/dateFormat";
 import { formatMoney } from "../../lib/money";
 import { getInitials } from "../../lib/textFormat";
 import type { HomeStackParamList, RootTabParamList } from "../../navigation/types";
@@ -36,10 +36,6 @@ type Navigation = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, "Dashboard">,
   BottomTabNavigationProp<RootTabParamList>
 >;
-
-function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function todayLabel(): string {
   const parts = new Intl.DateTimeFormat(undefined, {
@@ -73,7 +69,7 @@ export function HomeScreen() {
     try {
       const [dashboardTotals, entries, customerRows, settings] = await Promise.all([
         getDashboardTotals(db),
-        listTodaysEntries(db, todayDate()),
+        listTodaysEntries(db, localDateString()),
         listCustomersWithBalance(db),
         getSettings(db),
       ]);

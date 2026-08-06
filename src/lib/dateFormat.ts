@@ -1,3 +1,17 @@
+/**
+ * "YYYY-MM-DD" for a Date in **local** time. Never use `date.toISOString().slice(0, 10)` for
+ * "today's business date" — `toISOString()` is UTC, so in any timezone ahead of UTC (e.g. PKT,
+ * UTC+5) it still reports *yesterday's* date for the first few hours after local midnight (at
+ * 1:49 AM PKT on Aug 7, UTC is still ~8:49 PM on Aug 6). This is the single source of truth for
+ * "today" used by DateField, new-entry defaults, and the Home/Reports/Khata date-range filters.
+ */
+export function localDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /** "2:14 PM" from an ISO timestamp, for compact activity-row subtitles. */
 export function formatTimeOfDay(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, {

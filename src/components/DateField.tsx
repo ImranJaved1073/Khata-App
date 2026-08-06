@@ -4,24 +4,14 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { localDateString } from "../lib/dateFormat";
 import type { AppColors } from "../theme/colors";
 import { useTheme } from "../theme/ThemeContext";
 import { theme } from "../theme/theme";
 
-function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function parseDate(value: string): Date {
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-}
-
-function toDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 /** Calendar-driven date picker (spec: tapping opens a calendar, defaults to today). Replaces free-text date entry everywhere. */
@@ -42,7 +32,7 @@ export function DateField({
   const [open, setOpen] = useState(false);
 
   const dateValue = value ? parseDate(value) : new Date();
-  const isToday = value === todayDate();
+  const isToday = value === localDateString();
   const displayText = isToday
     ? t("entry.today")
     : dateValue.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -52,7 +42,7 @@ export function DateField({
       setOpen(false);
     }
     if (event.type === "dismissed" || !selected) return;
-    onChange(toDateString(selected));
+    onChange(localDateString(selected));
     if (Platform.OS === "ios") setOpen(false);
   }
 
