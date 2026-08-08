@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,12 +12,15 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Contact, ContactField, getPermissionsAsync, requestPermissionsAsync } from "expo-contacts";
+import type { ExistingPhone } from "expo-contacts";
 import * as ImagePicker from "expo-image-picker";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 
+import { ActionSheet } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { db } from "../../db/client";
@@ -61,6 +65,8 @@ export function CustomerFormScreen() {
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [importingContact, setImportingContact] = useState(false);
+  const [phoneChoices, setPhoneChoices] = useState<(ExistingPhone & { number: string })[]>([]);
   const [hasEntries, setHasEntries] = useState(true);
   const [name, setName] = useState(route.params?.initialName ?? "");
   const [phone, setPhone] = useState("");
@@ -135,6 +141,67 @@ export function CustomerFormScreen() {
     } catch (error) {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
+  }
+
+  function applyContactPhone(number: string) {
+    setPhone(number.trim());
+    setPhoneError(null);
+  }
+
+  function handleContactsPermissionDenied(canAskAgain: boolean) {
+    if (canAskAgain) {
+      Alert.alert(t("customerForm.contactsPermissionTitle"), t("customerForm.contactsPermissionMessage"));
+      return;
+    }
+    Alert.alert(
+      t("customerForm.contactsPermissionTitle"),
+      t("customerForm.contactsPermissionBlockedMessage"),
+      [
+        { text: t("customerForm.cancel"), style: "cancel" },
+        { text: t("customerForm.openSettings"), onPress: () => Linking.openSettings() },
+      ],
+    );
+  }
+
+  async function handleImportFromContacts() {
+    setImportingContact(true);
+    try {
+      // The OS contact-picker intent returns only the one selected contact's URI without a
+      // permission prompt, but expo-contacts' getDetails() still queries the ContentResolver by
+      // contact id under the hood, which throws unless READ_CONTACTS is actually granted.
+      let permission = await getPermissionsAsync();
+      if (!permission.granted) {
+        permission = await requestPermissionsAsync();
+      }
+      if (!permission.granted) {
+        handleContactsPermissionDenied(permission.canAskAgain);
+        return;
+      }
+
+      const contact = await Contact.presentPicker();
+      if (!contact) return;
+
+      const details = await contact.getDetails([ContactField.FULL_NAME, ContactField.PHONES]);
+      const fullName = details.fullName?.trim();
+      if (fullName) {
+        setName(fullName);
+        setNameError(null);
+      }
+
+      const phones = (details.phones ?? []).filter(
+        (entry): entry is ExistingPhone & { number: string } => Boolean(entry.number?.trim()),
+      );
+      if (phones.length === 1) {
+        applyContactPhone(phones[0].number);
+      } else if (phones.length > 1) {
+        setPhoneChoices(phones);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setImportingContact(false);
     }
   }
 
@@ -272,6 +339,23 @@ export function CustomerFormScreen() {
           </View>
         </View>
       </Pressable>
+
+      {!isEdit ? (
+        <Pressable
+          style={styles.importButton}
+          onPress={handleImportFromContacts}
+          disabled={importingContact}
+          accessibilityRole="button"
+          accessibilityLabel={t("customerForm.importFromContacts")}
+        >
+          {importingContact ? (
+            <ActivityIndicator color={colors.primary} size="small" />
+          ) : (
+            <Ionicons name="people-outline" size={18} color={colors.primary} />
+          )}
+          <Text style={styles.importButtonText}>{t("customerForm.importFromContacts")}</Text>
+        </Pressable>
+      ) : null}
 
       <Field label={t("customerForm.name")} required>
         <TextInput
@@ -428,6 +512,24 @@ export function CustomerFormScreen() {
         onCancel={() => setPendingAction(null)}
         onConfirm={handleConfirmPendingAction}
       />
+
+      <ActionSheet
+        visible={phoneChoices.length > 0}
+        onClose={() => setPhoneChoices([])}
+        title={t("customerForm.selectPhoneNumber")}
+        cancelLabel={t("customerForm.cancel")}
+        options={phoneChoices.map((entry, index) => ({
+          key: entry.id ?? String(index),
+          icon: "call-outline",
+          iconBackgroundColor: colors.primarySoft,
+          iconColor: colors.primary,
+          label: entry.number,
+          description: entry.label
+            ? entry.label.charAt(0).toUpperCase() + entry.label.slice(1)
+            : undefined,
+          onPress: () => applyContactPhone(entry.number),
+        }))}
+      />
     </ScrollView>
   );
 }
@@ -478,6 +580,24 @@ const makeStyles = (colors: AppColors) =>
   photoPicker: {
     alignItems: "center",
     marginBottom: theme.spacing.lg,
+  },
+  importButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
+    marginBottom: theme.spacing.md,
+  },
+  importButtonText: {
+    ...theme.typography.caption,
+    color: colors.primary,
+    fontWeight: "600",
   },
   photo: {
     width: 112,

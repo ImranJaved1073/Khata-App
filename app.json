@@ -32,6 +32,12 @@
       "expo-local-authentication",
       "@react-native-community/datetimepicker",
       [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Khata to access your contacts so you can add a customer straight from your phone's contact list."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",

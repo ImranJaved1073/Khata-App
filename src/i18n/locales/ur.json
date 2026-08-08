@@ -87,7 +87,13 @@
     "payable": "ادائیگی",
     "optional": "اختیاری",
     "owesYouSuffix": "آپ کا مقروض ہے",
-    "youOweSuffix": "آپ مقروض ہیں"
+    "youOweSuffix": "آپ مقروض ہیں",
+    "importFromContacts": "رابطوں سے درآمد کریں",
+    "selectPhoneNumber": "فون نمبر منتخب کریں",
+    "contactsPermissionTitle": "رابطوں تک رسائی درکار ہے",
+    "contactsPermissionMessage": "نام اور فون نمبر درآمد کرنے کے لیے Khata کو آپ کے رابطے پڑھنے کی اجازت درکار ہے۔",
+    "contactsPermissionBlockedMessage": "نام اور فون نمبر درآمد کرنے کے لیے Khata کو آپ کے رابطے پڑھنے کی اجازت درکار ہے۔ اپنے فون کی سیٹنگز میں Khata کے لیے رابطوں کی رسائی فعال کریں، پھر دوبارہ کوشش کریں۔",
+    "openSettings": "سیٹنگز کھولیں"
   },
   "khata": {
     "newEntry": "نئی انٹری",
