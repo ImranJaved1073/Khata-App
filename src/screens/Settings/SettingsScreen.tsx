@@ -14,7 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ActionSheet } from "../../components/ActionSheet";
+import type { ActionSheetOption } from "../../components/ActionSheet";
 import { Avatar } from "../../components/Avatar";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { LanguageSelector } from "../../components/LanguageSelector";
 import { ThemeModeSelector } from "../../components/ThemeModeSelector";
 import { db } from "../../db/client";
@@ -28,15 +31,41 @@ import {
   setPin as savePin,
   verifyPin,
 } from "../../lib/appLock";
-import { BACKUP_FILE_NAME, BACKUP_MIME, pickBackupFile } from "../../lib/backupFile";
+import {
+  BACKUP_FILE_NAME,
+  BACKUP_MIME,
+  backupFileDisplayName,
+  pickBackupFolder,
+  readBackupFileContents,
+} from "../../lib/backupFile";
+import { formatRelativeDate } from "../../lib/dateFormat";
+import { backupToDrive, downloadDriveBackup, listDriveBackups } from "../../lib/driveBackup";
 import { writeAndShareFile } from "../../lib/exportFile";
-import { getInitials } from "../../lib/textFormat";
+import {
+  connectGoogleDrive,
+  currentAccount,
+  disconnectGoogleDrive,
+  isGoogleDriveConfigured,
+} from "../../lib/googleAuth";
+import type { GoogleAccount } from "../../lib/googleAuth";
+import type { DriveBackupFile } from "../../lib/googleDrive";
+import { formatFileSize, getInitials } from "../../lib/textFormat";
 import { getBackupData, isBackupData, restoreBackupData } from "../../repositories/backupRepository";
+import type { BackupData } from "../../repositories/backupRepository";
 import { getSettings, updateSettings } from "../../repositories/settingsRepository";
 import type { AppColors } from "../../theme/colors";
 import { useTheme } from "../../theme/ThemeContext";
 import { theme } from "../../theme/theme";
 import type { AppLanguage, Settings } from "../../types/models";
+
+/** Shared by the local-file "last restore" style labels and the Cloud Backup section's "Last backup"/Drive-file-list rows — same today/yesterday/N-days-ago/date bucketing used everywhere else recency is shown (see dateFormat.ts). */
+function relativeLabel(iso: string, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const relative = formatRelativeDate(iso);
+  if (relative.kind === "today") return t("common.today", { time: relative.time });
+  if (relative.kind === "yesterday") return t("common.yesterday");
+  if (relative.kind === "daysAgo") return t("common.daysAgo", { count: relative.count });
+  return relative.value;
+}
 
 const CURRENCY_PRESETS = ["Rs", "₹", "৳", "$"];
 
@@ -265,6 +294,16 @@ export function SettingsScreen() {
         />
         <Divider />
         <BackupSection />
+      </Section>
+
+      <Section title={t("settings.cloudBackup")}>
+        <CloudBackupSection
+          driveConnectedEmail={settings.driveConnectedEmail}
+          driveAutoBackupEnabled={settings.driveAutoBackupEnabled}
+          driveBackupIntervalDays={settings.driveBackupIntervalDays}
+          driveLastBackupAt={settings.driveLastBackupAt}
+          onSettingsPatch={setSettings}
+        />
       </Section>
     </ScrollView>
   );
@@ -565,9 +604,29 @@ function PinSection({
   );
 }
 
+interface BackupCandidate {
+  uri: string;
+  data: BackupData;
+}
+
+/** Reads and JSON-parses one candidate file, returning the parsed backup only if it actually validates — used to silently skip a folder's non-backup `.json` files instead of erroring on the first one that doesn't match. */
+async function tryReadBackup(uri: string): Promise<BackupCandidate | null> {
+  try {
+    const contents = await readBackupFileContents(uri);
+    const parsed: unknown = JSON.parse(contents);
+    if (!isBackupData(parsed)) return null;
+    return { uri, data: parsed };
+  } catch {
+    return null;
+  }
+}
+
 function BackupSection() {
   const { t } = useTranslation();
+  const { colors } = useTheme();
   const [busy, setBusy] = useState<"export" | "restore" | null>(null);
+  const [candidates, setCandidates] = useState<BackupCandidate[] | null>(null);
+  const [pendingRestoreData, setPendingRestoreData] = useState<BackupData | null>(null);
 
   async function handleExport() {
     setBusy("export");
@@ -588,30 +647,272 @@ function BackupSection() {
     }
   }
 
-  function confirmRestore() {
-    Alert.alert(t("settings.restoreConfirmTitle"), t("settings.restoreConfirmMessage"), [
-      { text: t("customerForm.cancel"), style: "cancel" },
-      { text: t("settings.restore"), style: "destructive", onPress: runRestore },
-    ]);
-  }
-
-  async function runRestore() {
+  async function handleRestore() {
     setBusy("restore");
     try {
-      const picked = await pickBackupFile();
+      const picked = await pickBackupFolder();
       if (picked.status === "unsupported") {
         Alert.alert(t("settings.restoreUnsupported"));
         return;
       }
       if (picked.status === "cancelled") return;
-      if (picked.status === "not-found") {
+      if (picked.status === "empty") {
         Alert.alert(t("settings.restoreNotFound", { fileName: BACKUP_FILE_NAME }));
+        return;
+      }
+
+      const valid: BackupCandidate[] = [];
+      for (const uri of picked.candidateUris) {
+        const result = await tryReadBackup(uri);
+        if (result) valid.push(result);
+      }
+
+      if (valid.length === 0) {
+        Alert.alert(t("settings.restoreInvalid"));
+        return;
+      }
+      if (valid.length === 1) {
+        setPendingRestoreData(valid[0].data);
+        return;
+      }
+      setCandidates(valid);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runRestore(data: BackupData) {
+    setBusy("restore");
+    try {
+      await restoreBackupData(db, data);
+      Alert.alert(t("settings.restoreSuccessTitle"), t("settings.restoreSuccessMessage"));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+      setPendingRestoreData(null);
+    }
+  }
+
+  return (
+    <View>
+      <SettingsRow
+        icon="document-text-outline"
+        label={t("settings.exportBackup")}
+        chevron
+        busy={busy === "export"}
+        disabled={busy !== null}
+        onPress={handleExport}
+      />
+      <Divider />
+      <SettingsRow
+        icon="time-outline"
+        label={t("settings.restore")}
+        chevron
+        busy={busy === "restore"}
+        disabled={busy !== null}
+        onPress={handleRestore}
+      />
+
+      <ActionSheet
+        visible={candidates !== null}
+        onClose={() => setCandidates(null)}
+        title={t("settings.restorePickTitle")}
+        cancelLabel={t("customerForm.cancel")}
+        options={(candidates ?? []).map(
+          (candidate): ActionSheetOption => ({
+            key: candidate.uri,
+            icon: "document-text-outline",
+            iconBackgroundColor: colors.primarySoft,
+            iconColor: colors.primaryMuted,
+            label: backupFileDisplayName(candidate.uri),
+            description: relativeLabel(candidate.data.exportedAt, t),
+            onPress: () => {
+              setCandidates(null);
+              setPendingRestoreData(candidate.data);
+            },
+          }),
+        )}
+      />
+
+      <ConfirmDialog
+        visible={pendingRestoreData !== null}
+        title={t("settings.restoreConfirmTitle")}
+        message={t("settings.restoreConfirmMessage")}
+        confirmLabel={t("settings.restore")}
+        cancelLabel={t("customerForm.cancel")}
+        destructive
+        loading={busy === "restore"}
+        onCancel={() => setPendingRestoreData(null)}
+        onConfirm={() => pendingRestoreData && runRestore(pendingRestoreData)}
+      />
+    </View>
+  );
+}
+
+const DRIVE_INTERVAL_DAYS = [1, 7] as const;
+
+function driveIntervalLabelKey(days: number): string {
+  return days === 1 ? "settings.driveIntervalDaily" : "settings.driveIntervalWeekly";
+}
+
+/**
+ * Google Drive cloud backup (Phase 7) — connect/backup-now/auto-backup/restore-from-a-dated-list,
+ * mirroring DigiKhata-style ledger apps. Needs a real OAuth web client ID pasted into app.json's
+ * `expo.extra.googleDrive.webClientId` (`isGoogleDriveConfigured()` gates the whole section on
+ * that) and a dev-client rebuild for the native Google Sign-In module to exist at all — see
+ * `.claude/docs/google-drive-backup-setup.md`. Until both are done this renders a single
+ * "not set up yet" row instead of a Connect button that would just fail.
+ */
+function CloudBackupSection({
+  driveConnectedEmail,
+  driveAutoBackupEnabled,
+  driveBackupIntervalDays,
+  driveLastBackupAt,
+  onSettingsPatch,
+}: {
+  driveConnectedEmail: string | null;
+  driveAutoBackupEnabled: boolean;
+  driveBackupIntervalDays: number;
+  driveLastBackupAt: string | null;
+  onSettingsPatch: (updated: Settings) => void;
+}) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const configured = isGoogleDriveConfigured();
+
+  const [account, setAccount] = useState<GoogleAccount | null>(() => (configured ? currentAccount() : null));
+  const [busy, setBusy] = useState<"connect" | "disconnect" | "backup" | "restore" | null>(null);
+  const [restoreFiles, setRestoreFiles] = useState<DriveBackupFile[] | null>(null);
+  const [pendingRestoreFile, setPendingRestoreFile] = useState<DriveBackupFile | null>(null);
+  const [restoreConfirmBusy, setRestoreConfirmBusy] = useState(false);
+
+  const connectedEmail = account?.email ?? driveConnectedEmail;
+
+  async function handleConnect() {
+    setBusy("connect");
+    try {
+      const result = await connectGoogleDrive();
+      if (!result) return; // user cancelled — not an error
+      setAccount(result);
+      onSettingsPatch(await updateSettings(db, { driveConnectedEmail: result.email }));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function confirmDisconnect() {
+    Alert.alert(t("settings.driveDisconnectConfirmTitle"), t("settings.driveDisconnectConfirmMessage"), [
+      { text: t("customerForm.cancel"), style: "cancel" },
+      { text: t("settings.driveDisconnect"), style: "destructive", onPress: runDisconnect },
+    ]);
+  }
+
+  async function runDisconnect() {
+    setBusy("disconnect");
+    try {
+      await disconnectGoogleDrive();
+      setAccount(null);
+      onSettingsPatch(
+        await updateSettings(db, { driveConnectedEmail: null, driveAutoBackupEnabled: false }),
+      );
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleBackupNow() {
+    setBusy("backup");
+    try {
+      const data = await getBackupData(db);
+      const result = await backupToDrive(JSON.stringify(data), data.exportedAt);
+      if (result.status === "not-connected") {
+        Alert.alert(t("settings.driveNotConnected"));
+        return;
+      }
+      if (result.status === "error") {
+        Alert.alert(t("common.errorTitle"), result.message);
+        return;
+      }
+      onSettingsPatch(await updateSettings(db, { driveLastBackupAt: data.exportedAt }));
+      Alert.alert(t("settings.driveBackupSuccessTitle"), t("settings.driveBackupSuccessMessage"));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleAutoBackupToggle(value: boolean) {
+    try {
+      onSettingsPatch(await updateSettings(db, { driveAutoBackupEnabled: value }));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
+  }
+
+  async function handleIntervalChange(days: number) {
+    try {
+      onSettingsPatch(await updateSettings(db, { driveBackupIntervalDays: days }));
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    }
+  }
+
+  async function openRestoreSheet() {
+    setBusy("restore");
+    try {
+      const result = await listDriveBackups();
+      if (result.status === "not-connected") {
+        Alert.alert(t("settings.driveNotConnected"));
+        return;
+      }
+      if (result.status === "error") {
+        Alert.alert(t("common.errorTitle"), result.message);
+        return;
+      }
+      if (result.value.length === 0) {
+        Alert.alert(t("settings.driveNoBackups"));
+        return;
+      }
+      setRestoreFiles(result.value);
+    } catch (error) {
+      console.error(error);
+      Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runRestoreFromDrive(file: DriveBackupFile) {
+    setRestoreConfirmBusy(true);
+    try {
+      const result = await downloadDriveBackup(file.id);
+      if (result.status !== "ok") {
+        Alert.alert(
+          t("common.errorTitle"),
+          result.status === "error" ? result.message : t("settings.driveNotConnected"),
+        );
         return;
       }
 
       let parsed: unknown;
       try {
-        parsed = JSON.parse(picked.contents);
+        parsed = JSON.parse(result.value);
       } catch {
         Alert.alert(t("settings.restoreInvalid"));
         return;
@@ -627,28 +928,141 @@ function BackupSection() {
       console.error(error);
       Alert.alert(t("common.errorTitle"), t("common.errorMessage"));
     } finally {
-      setBusy(null);
+      setRestoreConfirmBusy(false);
+      setPendingRestoreFile(null);
     }
+  }
+
+  if (!configured) {
+    return (
+      <SettingsRow
+        icon="cloud-outline"
+        label={t("settings.cloudBackup")}
+        hint={t("settings.driveNotConfigured")}
+      />
+    );
+  }
+
+  if (!connectedEmail) {
+    return (
+      <SettingsRow
+        icon="logo-google"
+        label={t("settings.driveConnect")}
+        hint={t("settings.driveConnectHint")}
+        chevron
+        busy={busy === "connect"}
+        disabled={busy !== null}
+        onPress={handleConnect}
+      />
+    );
   }
 
   return (
     <View>
       <SettingsRow
+        icon="logo-google"
+        label={connectedEmail}
+        hint={t("settings.driveLastBackup", {
+          when: driveLastBackupAt ? relativeLabel(driveLastBackupAt, t) : t("settings.driveNeverBackedUp"),
+        })}
+      />
+      <Divider />
+      <SettingsRow
         icon="cloud-upload-outline"
-        label={t("settings.exportBackup")}
+        label={t("settings.driveBackupNow")}
         chevron
-        busy={busy === "export"}
+        busy={busy === "backup"}
         disabled={busy !== null}
-        onPress={handleExport}
+        onPress={handleBackupNow}
       />
       <Divider />
       <SettingsRow
         icon="time-outline"
-        label={t("settings.restore")}
+        label={t("settings.driveRestore")}
         chevron
         busy={busy === "restore"}
         disabled={busy !== null}
-        onPress={confirmRestore}
+        onPress={openRestoreSheet}
+      />
+      <Divider />
+      <SettingsRow
+        icon="repeat-outline"
+        label={t("settings.driveAutoBackup")}
+        trailing={
+          <Switch
+            value={driveAutoBackupEnabled}
+            onValueChange={handleAutoBackupToggle}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.onPrimary}
+            accessibilityLabel={t("settings.driveAutoBackup")}
+          />
+        }
+      />
+      {driveAutoBackupEnabled ? (
+        <View style={styles.currencyChipRow}>
+          {DRIVE_INTERVAL_DAYS.map((days) => (
+            <Pressable
+              key={days}
+              style={[styles.currencyChip, driveBackupIntervalDays === days && styles.currencyChipActive]}
+              onPress={() => handleIntervalChange(days)}
+              accessibilityRole="button"
+              accessibilityLabel={t(driveIntervalLabelKey(days))}
+              accessibilityState={{ selected: driveBackupIntervalDays === days }}
+            >
+              <Text
+                style={[
+                  styles.currencyChipText,
+                  driveBackupIntervalDays === days && styles.currencyChipTextActive,
+                ]}
+              >
+                {t(driveIntervalLabelKey(days))}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      <Divider />
+      <SettingsRow
+        icon="log-out-outline"
+        label={t("settings.driveDisconnect")}
+        chevron
+        danger
+        busy={busy === "disconnect"}
+        disabled={busy !== null}
+        onPress={confirmDisconnect}
+      />
+
+      <ActionSheet
+        visible={restoreFiles !== null}
+        onClose={() => setRestoreFiles(null)}
+        title={t("settings.driveRestorePickTitle")}
+        cancelLabel={t("customerForm.cancel")}
+        options={(restoreFiles ?? []).map(
+          (file): ActionSheetOption => ({
+            key: file.id,
+            icon: "document-text-outline",
+            iconBackgroundColor: colors.primarySoft,
+            iconColor: colors.primaryMuted,
+            label: relativeLabel(file.createdTime, t),
+            description: file.size ? formatFileSize(file.size) : undefined,
+            onPress: () => {
+              setRestoreFiles(null);
+              setPendingRestoreFile(file);
+            },
+          }),
+        )}
+      />
+
+      <ConfirmDialog
+        visible={pendingRestoreFile !== null}
+        title={t("settings.restoreConfirmTitle")}
+        message={t("settings.restoreConfirmMessage")}
+        confirmLabel={t("settings.restore")}
+        cancelLabel={t("customerForm.cancel")}
+        destructive
+        loading={restoreConfirmBusy}
+        onCancel={() => setPendingRestoreFile(null)}
+        onConfirm={() => pendingRestoreFile && runRestoreFromDrive(pendingRestoreFile)}
       />
     </View>
   );

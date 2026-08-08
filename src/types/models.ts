@@ -86,4 +86,9 @@ export interface Settings {
   pinHash: string | null;
   biometricEnabled: boolean;
   billFooterText: string | null;
+  /** Google account email currently connected for Drive backup, or null. The real credential lives in the OS's Google account manager, not this app — see `src/lib/googleAuth.ts`. */
+  driveConnectedEmail: string | null;
+  driveAutoBackupEnabled: boolean;
+  driveBackupIntervalDays: number;
+  driveLastBackupAt: IsoTimestamp | null;
 }

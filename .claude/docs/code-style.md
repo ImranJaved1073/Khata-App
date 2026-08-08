@@ -42,6 +42,6 @@ Every amount is an integer number of paisa. Never introduce a float amount, neve
 - Default to none. Only comment the non-obvious: a hidden constraint from the spec (e.g. "balance is never stored — always recomputed"), a workaround, or a rule a reader could plausibly get wrong. Don't comment what the code already says.
 
 ## What not to do
-- Don't add cloud sync, online payments, or inventory/stock tracking — explicitly out of scope for v1 (spec section 4).
+- Don't add cloud sync, online payments, or inventory/stock tracking — explicitly out of scope for v1 (spec section 4). **Exception (2026-08-08, explicit user request):** Google Drive cloud *backup* (Settings → Cloud backup, `src/lib/googleAuth.ts`/`googleDrive.ts`/`driveBackup.ts`) reaches the network — this is a deliberate, scoped carve-out, not a reopening of "no cloud sync" in general. It's one-way (upload/restore a point-in-time JSON snapshot; SQLite via the repository layer is still the only live source of truth, nothing reads live from Drive), opt-in, and unrelated to real-time multi-device sync. Don't treat it as precedent for adding sync, online payments, or any other network feature without the same kind of explicit direction.
 - Don't add a testing framework, CI config, or linter setup unless asked — none exists yet and it's not part of the current phase.
 - Don't reach for `AsyncStorage` for anything structured — SQLite via the repository layer is the single source of truth. `expo-secure-store` is reserved for the PIN hash (Phase 6).

@@ -50,10 +50,21 @@
       [
         "react-native-share",
         {
-          "ios": ["whatsapp"],
-          "android": ["com.whatsapp", "com.whatsapp.w4b"]
+          "ios": [
+            "whatsapp"
+          ],
+          "android": [
+            "com.whatsapp",
+            "com.whatsapp.w4b"
+          ]
         }
-      ]
-    ]
+      ],
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "googleDrive": {
+        "webClientId": ""
+      }
+    }
   }
 }

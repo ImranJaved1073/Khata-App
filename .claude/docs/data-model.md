@@ -109,6 +109,10 @@ Business profile, locale, currency, theme, and app-lock config. Always fetched v
 | themeMode | `system` \| `light` \| `dark` | resolved to a light/dark palette by `ThemeContext` (`Appearance` for `system`); default `system` |
 | pinHash | text? | **unused** — a leftover Phase 0 column. The actual PIN is a salted SHA-256 hash stored only in `expo-secure-store` via [`src/lib/appLock.ts`](../../src/lib/appLock.ts), never in SQLite. Don't write to this column. |
 | biometricEnabled | bool | the real biometric toggle (unlike `pinHash`, this one is live) — only meaningful once a PIN exists, since biometric unlock supplements the PIN rather than replacing it |
+| driveConnectedEmail | text? | Google account email connected for Drive backup, display-only — the real OAuth credential lives in the OS's Google account manager (`@react-native-google-signin/google-signin`), not this table. Null = not connected. |
+| driveAutoBackupEnabled | bool | whether a silent backup should be attempted on app unlock/foreground once `driveBackupIntervalDays` has elapsed — see `runAutoDriveBackupIfDue()` (`backupRepository.ts`) |
+| driveBackupIntervalDays | int | `1` (daily) or `7` (weekly); default `1` |
+| driveLastBackupAt | text? | UTC ISO timestamp of the last successful Drive backup (auto or manual), or null if one has never succeeded |
 
 ## The one rule that governs the whole app
 ```

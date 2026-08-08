@@ -6,3 +6,10 @@ export function getInitials(name: string): string {
   const second = parts.length > 1 ? parts[1]!.charAt(0) : "";
   return (first + second).toUpperCase();
 }
+
+/** Byte count -> "12 KB"/"1.2 MB", for a Drive backup file's size caption. */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

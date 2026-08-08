@@ -16,6 +16,7 @@ import { hasPin, isOnboarded, RELOCK_AFTER_MS } from "./src/lib/appLock";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { LockScreen } from "./src/screens/Lock/LockScreen";
 import { OnboardingScreen } from "./src/screens/Onboarding/OnboardingScreen";
+import { runAutoDriveBackupIfDue } from "./src/repositories/backupRepository";
 import { getSettings } from "./src/repositories/settingsRepository";
 import { darkColors, lightColors } from "./src/theme/colors";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
@@ -103,6 +104,15 @@ function ThemedApp({
     });
     return () => subscription.remove();
   }, [onboarded]);
+
+  // Fires on first render past onboarding/lock and again on every subsequent unlock — a cheap
+  // opportunity to run a silent Drive auto-backup if one is actually due (the interval check
+  // lives in runAutoDriveBackupIfDue itself, so most calls here are a no-op settings read).
+  useEffect(() => {
+    if (onboarded && !locked) {
+      runAutoDriveBackupIfDue(db).catch((error: Error) => console.error(error));
+    }
+  }, [onboarded, locked]);
 
   const navigationTheme: NavigationTheme = {
     ...(scheme === "dark" ? DarkTheme : DefaultTheme),

@@ -121,4 +121,12 @@ export const settings = sqliteTable("settings", {
     .notNull()
     .default(false),
   billFooterText: text("bill_footer_text"),
+  /** Google account email currently connected for Drive backup, or null — display only, the real credential lives in the OS's Google Play Services account manager, not this app (see googleAuth.ts). */
+  driveConnectedEmail: text("drive_connected_email"),
+  driveAutoBackupEnabled: integer("drive_auto_backup_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  driveBackupIntervalDays: integer("drive_backup_interval_days").notNull().default(1),
+  /** UTC ISO timestamp of the last successful Drive backup (auto or manual), or null if one has never succeeded. */
+  driveLastBackupAt: text("drive_last_backup_at"),
 });

@@ -16,6 +16,10 @@ const DEFAULT_SETTINGS: Settings = {
   pinHash: null,
   biometricEnabled: false,
   billFooterText: null,
+  driveConnectedEmail: null,
+  driveAutoBackupEnabled: false,
+  driveBackupIntervalDays: 1,
+  driveLastBackupAt: null,
 };
 
 /** Settings is a single-row table; this creates the row with defaults on first read. */
