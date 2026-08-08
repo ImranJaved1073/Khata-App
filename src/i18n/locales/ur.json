@@ -12,7 +12,8 @@
     "daysAgo_one": "{{count}} دن پہلے",
     "daysAgo_other": "{{count}} دن پہلے",
     "close": "بند کریں",
-    "back": "واپس"
+    "back": "واپس",
+    "moreInfo": "مزید معلومات"
   },
   "nav": {
     "home": "ہوم",

@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { InfoTooltip } from "../../components/InfoTooltip";
 import { hashColor, matchesKnownLabel, swatchColorFor } from "../../lib/garmentColor";
-import { formatMoney, formatMoneyInput, parseMoneyInput } from "../../lib/money";
+import { formatMoney, parseMoneyInput } from "../../lib/money";
 import { generateLineItemDescription } from "../../repositories/description";
 import type { AppColors } from "../../theme/colors";
 import { GARMENT_COLOR_LABELS, GARMENT_COLORS } from "../../theme/colors";
@@ -88,7 +89,7 @@ export function buildInitialLineItem(key: string): BillLineItemState {
     isCustomSize: false,
     color: null,
     quantity,
-    rateInput: formatMoneyInput(0),
+    rateInput: "",
     description: generateLineItemDescription({ quantity, color: null, itemName, size: null }),
     descriptionTouched: false,
   };
@@ -132,9 +133,34 @@ export function BillLineItemCard({
   const [colorOpen, setColorOpen] = useState(false);
   const [colorQuery, setColorQuery] = useState("");
   const [editingDescription, setEditingDescription] = useState(false);
+  const [quantityText, setQuantityText] = useState(() => String(item.quantity));
 
   function update(patch: Partial<BillLineItemState>) {
     onChange({ ...item, ...patch });
+  }
+
+  // BillLineItemCard has no `key` prop tied to item.key at its call site (AddItemsScreen reuses
+  // one instance for whichever line is active), so this component's own state doesn't reset when
+  // the active line switches — resync the typed-quantity text whenever the item identity or its
+  // committed quantity changes. An in-progress edit that hasn't parsed to a valid integer yet
+  // (e.g. the field cleared to "" while retyping) intentionally doesn't touch item.quantity, so
+  // it doesn't trigger this and the user's half-typed digits survive.
+  useEffect(() => {
+    setQuantityText(String(item.quantity));
+  }, [item.key, item.quantity]);
+
+  function handleQuantityChange(text: string) {
+    const digits = text.replace(/[^0-9]/g, "");
+    setQuantityText(digits);
+    if (digits === "") return;
+    update({ quantity: Math.max(1, parseInt(digits, 10)) });
+  }
+
+  function handleQuantityBlur() {
+    const parsed = parseInt(quantityText, 10);
+    if (!quantityText || Number.isNaN(parsed) || parsed < 1) {
+      setQuantityText(String(item.quantity));
+    }
   }
 
   const sizeMode = categorySizeMode(item.category);
@@ -335,9 +361,16 @@ export function BillLineItemCard({
       />
 
       <View style={styles.sizeHeaderRow}>
-        <Text style={styles.fieldLabel}>
-          {sizeMode === "numeric" ? t("entry.sizeWaistLabel") : t("entry.size")}
-        </Text>
+        <View style={styles.sizeHeaderLeft}>
+          <Text style={styles.fieldLabel}>
+            {sizeMode === "numeric" ? t("entry.sizeWaistLabel") : t("entry.size")}
+          </Text>
+          <InfoTooltip
+            text={`${t("entry.sizeMultiHint")} ${
+              sizeMode === "numeric" ? t("entry.sizeHintNumeric") : t("entry.sizeHintNamed")
+            }`}
+          />
+        </View>
         <View
           style={[
             styles.sizeModeBadge,
@@ -354,7 +387,6 @@ export function BillLineItemCard({
           </Text>
         </View>
       </View>
-      <Text style={styles.sizeMultiHintText}>{t("entry.sizeMultiHint")}</Text>
       <View style={styles.chipRow}>
         {sizeList.map((size) => {
           const isSelected = !item.isCustomSize && selectedSizes.includes(size);
@@ -385,7 +417,10 @@ export function BillLineItemCard({
       </View>
       {item.isCustomSize ? (
         <View style={styles.customSizeBox}>
-          <Text style={styles.customSizeLabel}>{t("entry.enterSize")}</Text>
+          <View style={styles.customSizeLabelRow}>
+            <Text style={styles.customSizeLabel}>{t("entry.enterSize")}</Text>
+            <InfoTooltip text={t("entry.customSizeHint")} />
+          </View>
           <TextInput
             value={item.size ?? ""}
             onChangeText={(text) => update({ size: text })}
@@ -393,13 +428,8 @@ export function BillLineItemCard({
             placeholder={t("entry.customSize")}
             placeholderTextColor={colors.textSecondary}
           />
-          <Text style={styles.customSizeHint}>{t("entry.customSizeHint")}</Text>
         </View>
-      ) : (
-        <Text style={styles.sizeHintText}>
-          {sizeMode === "numeric" ? t("entry.sizeHintNumeric") : t("entry.sizeHintNamed")}
-        </Text>
-      )}
+      ) : null}
 
       <Text style={styles.fieldLabel}>{t("entry.color")}</Text>
       <Pressable
@@ -550,7 +580,16 @@ export function BillLineItemCard({
             >
               <Ionicons name="remove" size={18} color={colors.textPrimary} />
             </Pressable>
-            <Text style={styles.stepperValue}>{item.quantity}</Text>
+            <TextInput
+              value={quantityText}
+              onChangeText={handleQuantityChange}
+              onBlur={handleQuantityBlur}
+              style={styles.stepperValue}
+              keyboardType="number-pad"
+              selectTextOnFocus
+              maxFontSizeMultiplier={1.3}
+              accessibilityLabel={t("entry.quantity")}
+            />
             <Pressable
               style={styles.stepperButton}
               accessibilityLabel={t("entry.quantityIncrease")}
@@ -824,6 +863,11 @@ const makeStyles = (colors: AppColors) =>
     justifyContent: "space-between",
     marginBottom: theme.spacing.xs,
   },
+  sizeHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+  },
   sizeModeBadge: {
     borderRadius: theme.radius.pill,
     paddingHorizontal: theme.spacing.sm,
@@ -841,17 +885,6 @@ const makeStyles = (colors: AppColors) =>
     ...theme.typography.caption,
     fontWeight: "700",
   },
-  sizeMultiHintText: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  sizeHintText: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
-    marginTop: -theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
-  },
   customSizeBox: {
     borderWidth: 1,
     borderColor: colors.primary,
@@ -859,12 +892,13 @@ const makeStyles = (colors: AppColors) =>
     padding: theme.spacing.sm,
     marginBottom: theme.spacing.sm,
   },
-  customSizeLabel: {
-    ...theme.typography.caption,
-    color: colors.textSecondary,
+  customSizeLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
     marginBottom: theme.spacing.xs,
   },
-  customSizeHint: {
+  customSizeLabel: {
     ...theme.typography.caption,
     color: colors.textSecondary,
   },
@@ -896,6 +930,9 @@ const makeStyles = (colors: AppColors) =>
   stepperValue: {
     ...theme.typography.body,
     color: colors.textPrimary,
+    flex: 1,
+    textAlign: "center",
+    paddingVertical: 0,
   },
   descriptionHeaderRow: {
     flexDirection: "row",

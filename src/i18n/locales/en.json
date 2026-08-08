@@ -12,7 +12,8 @@
     "daysAgo_one": "{{count}} day ago",
     "daysAgo_other": "{{count}} days ago",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "moreInfo": "More info"
   },
   "nav": {
     "home": "Home",
