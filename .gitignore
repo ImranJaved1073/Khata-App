@@ -43,7 +43,9 @@ yarn-error.*
 # local dev run logs (expo start / expo run:android output, redirected to a file
 # during agent-driven runs so progress can be polled without blocking)
 .metro-run.log
+metro-run.log
 .emulator-run.log
 gradle-build.log
 gradle-build-err.log
 gradle-build-pid.txt
+gradle-release-build.log

@@ -87,7 +87,13 @@
     "payable": "payable",
     "optional": "optional",
     "owesYouSuffix": "owes you",
-    "youOweSuffix": "you owe"
+    "youOweSuffix": "you owe",
+    "importFromContacts": "Import from Contacts",
+    "selectPhoneNumber": "Select a phone number",
+    "contactsPermissionTitle": "Contacts access needed",
+    "contactsPermissionMessage": "Khata needs permission to read your contacts to import a name and phone number.",
+    "contactsPermissionBlockedMessage": "Khata needs permission to read your contacts to import a name and phone number. Enable Contacts access for Khata in your phone's Settings, then try again.",
+    "openSettings": "Open Settings"
   },
   "khata": {
     "newEntry": "New Entry",
